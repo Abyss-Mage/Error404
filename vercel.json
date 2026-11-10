@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/w/:token", "destination": "/index.html" },
+    { "source": "/api/:path*", "destination": "/api" },
+    { "source": "/shots/:path*", "destination": "/api" }
+  ],
+  "headers": [
+    { "source": "/(.*)", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }, { "key": "X-Robots-Tag", "value": "noindex" }] }
+  ]
+}

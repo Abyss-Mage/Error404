@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3CclipPath id='t'%3E%3Crect width='40' height='20'/%3E%3C/clipPath%3E%3CclipPath id='b'%3E%3Crect y='20' width='40' height='20'/%3E%3C/clipPath%3E%3Crect x='2' y='2' width='36' height='36' rx='7' fill='%23ff2a3a'/%3E%3Cg fill='none' stroke='%230b0b0c' stroke-width='5'%3E%3Ccircle cx='18.5' cy='20' r='9' clip-path='url(%23t)'/%3E%3Ccircle cx='22.5' cy='20' r='9' clip-path='url(%23b)'/%3E%3C/g%3E%3Crect x='0' y='26' width='10' height='3' fill='%230b0b0c'/%3E%3Crect x='30' y='10' width='10' height='3' fill='%230b0b0c'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#000000">
+<title>Error404</title>
+<style>
+  :root {
+    --wall: #0b0b0c;
+    --sheet: #151517;
+    --raised: #1d1d20;
+    --ink: #f2f2f3;
+    --ink-2: #a6a6ad;
+    --line: #2a2a2f;
+    --field: #6e6e76;
+    --red: #ff2a3a;
+    --red-text: #ff5a66;
+    --red-deep: #d1121f;
+    --fixed: #3ddc84;
+    --ease-out: cubic-bezier(.23, 1, .32, 1);
+    --shadow: 0 14px 34px -18px rgb(0 0 0 / .9);
+    color-scheme: dark;
+    scrollbar-color: #3a3a40 var(--wall);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--wall); }
+  body { margin: 0; color: var(--ink); font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; caret-color: var(--red); -webkit-font-smoothing: antialiased; }
+  ::selection { background: rgb(255 42 58 / .42); color: #fff; }
+  h1, h2, h3, p { margin: 0; }
+  h1, h2, h3 { line-height: 1.2; text-wrap: balance; letter-spacing: -0.01em; }
+  a { color: var(--red-text); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--red-text); outline-offset: 2px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Logo: mark + wordmark; the wordmark glitches for a split second every few seconds. */
+  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+  .logo .mark { width: 30px; height: 30px; flex: none; }
+  .wordmark { position: relative; display: inline-block; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .wordmark b { color: var(--red); font-weight: inherit; }
+  .wordmark::before, .wordmark::after { content: attr(data-text); position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+  .wordmark::before { color: var(--red); animation: glitch-a 5s steps(1, end) infinite; }
+  .wordmark::after { color: #fff; animation: glitch-b 5s steps(1, end) infinite; }
+  .logo:hover .wordmark::before, .logo:hover .wordmark::after { animation-duration: .6s; }
+  .logo.big .mark { width: 44px; height: 44px; }
+  .logo.big .wordmark { font-size: 28px; }
+  @keyframes glitch-a {
+    0%, 90%, 100% { opacity: 0; transform: none; clip-path: inset(0); }
+    91% { opacity: 1; transform: translate(-3px, 0); clip-path: inset(8% 0 58% 0); }
+    93% { opacity: 1; transform: translate(4px, 0); clip-path: inset(62% 0 6% 0); }
+    95% { opacity: 1; transform: translate(-2px, 0); clip-path: inset(34% 0 40% 0); }
+    97% { opacity: 0; }
+  }
+  @keyframes glitch-b {
+    0%, 91%, 100% { opacity: 0; transform: none; clip-path: inset(0); }
+    92% { opacity: .85; transform: translate(3px, 0); clip-path: inset(48% 0 30% 0); }
+    94% { opacity: .85; transform: translate(-4px, 0); clip-path: inset(12% 0 70% 0); }
+    96% { opacity: 0; }
+  }
+
+  /* Header band */
+  .band { background: #000; border-bottom: 2px solid var(--red); }
+  .band-inner { max-width: 1160px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+  .band h1 { font-size: 28px; font-weight: 750; min-width: 0; overflow-wrap: anywhere; }
+  .band .divider { width: 1px; align-self: stretch; background: var(--line); }
+  .band .end { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+  .who { font-size: 14px; color: var(--ink-2); }
+  .who strong { color: var(--ink); }
+  .chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: rgb(255 42 58 / .14); color: var(--red-text); }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: var(--red-deep); color: #fff; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .55; cursor: default; transform: none; }
+  .btn.quiet, .btn.on-band { background: var(--raised); color: var(--ink); border-color: #3a3a40; }
+  .btn.small { min-height: 34px; padding: 0 12px; font-size: 14px; }
+  .btn.wide { width: 100%; }
+  @media (hover: hover) {
+    .btn:not(:disabled):hover { background: #b30f1b; }
+    .btn.quiet:not(:disabled):hover, .btn.on-band:hover { background: #26262a; border-color: var(--field); }
+  }
+
+  /* Sheets and fields */
+  .sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .field { display: grid; gap: 6px; margin-bottom: 18px; }
+  .label { font-weight: 600; font-size: 14px; }
+  .hint { font-size: 13px; color: var(--ink-2); }
+  input:not([type=checkbox]):not([type=file]), textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--field); border-radius: 7px; background: #0f0f11; color: var(--ink); font: inherit; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  input:focus-visible, textarea:focus-visible { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px rgb(255 42 58 / .25); }
+  textarea { min-height: 104px; resize: vertical; }
+  ::placeholder { color: #8a8a93; }
+  .error { color: var(--red-text); font-size: 14px; font-weight: 600; }
+  .notice { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--fixed); font-weight: 600; }
+  .error:empty, .notice:empty { display: none; }
+
+  /* Screenshot drop zone */
+  .drop { display: grid; justify-items: center; gap: 4px; padding: 18px 14px; border: 1.5px dashed var(--field); border-radius: 8px; background: #101012; color: var(--ink-2); text-align: center; font-size: 14px; cursor: pointer; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .drop strong { color: var(--ink); }
+  .drop:focus-within { outline: 2px solid var(--red-text); outline-offset: 2px; }
+  .drop.over, .drop:hover { border-color: var(--red); background: #1a0e10; }
+  .preview { display: flex; align-items: center; gap: 12px; }
+  .preview img { width: 96px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
+  .preview:empty { display: none; }
+
+  /* Layouts */
+  .layout { max-width: 1160px; margin: 0 auto; padding: 28px 24px 72px; display: grid; gap: 28px; align-items: start; }
+  .tester { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); }
+  .admin { grid-template-columns: 270px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "nav main" "form main"; }
+  .admin > nav { grid-area: nav; }
+  .admin > .new-ws { grid-area: form; }
+  .admin > section { grid-area: main; }
+  .report { padding: 22px; position: sticky; top: 20px; }
+  .report h2 { font-size: 18px; margin-bottom: 18px; }
+  @media (max-width: 880px) {
+    .tester, .admin { grid-template-columns: minmax(0, 1fr); }
+    .admin { grid-template-rows: none; grid-template-areas: "nav" "main" "form"; }
+    .report { position: static; }
+    .band h1 { font-size: 22px; }
+    .band .divider { display: none; }
+  }
+
+  /* Problem list */
+  .wall-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 12px; }
+  .wall-head h2 { font-size: 18px; }
+  .count { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .snags { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .snag { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 16px; padding: 18px 20px; border-top: 1px solid var(--line); }
+  .snag:first-child { border-top: 0; }
+  .snag h3 { font-size: 16px; font-weight: 650; overflow-wrap: anywhere; }
+  .snag .details { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; color: #d4d4d8; }
+  .snag .shot { display: inline-block; margin-top: 10px; border-radius: 6px; }
+  .snag .shot img { display: block; max-width: min(100%, 360px); max-height: 200px; border-radius: 6px; border: 1px solid var(--line); }
+  .meta { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+  .done h3 { color: var(--ink-2); text-decoration: line-through; text-decoration-thickness: 1.5px; }
+  .done .details { color: var(--ink-2); }
+  .empty { padding: 36px 24px; text-align: center; color: var(--ink-2); }
+  .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+  @media (max-width: 560px) {
+    /* Tag and status share the first line; the text gets the full width below. */
+    .snag { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 16px; }
+    .snag > div { grid-column: 1 / -1; grid-row: 2; }
+    .layout { padding: 20px 14px 56px; }
+    .report { padding: 18px; }
+    .share { flex-wrap: wrap; }
+    .share .btn { width: 100%; }
+  }
+
+  /* Error-code tag: a red block with the number; when fixed it glitches out, leaving a dashed outline. */
+  .tag { position: relative; isolation: isolate; justify-self: start; display: inline-grid; place-items: center; min-width: 56px; height: 28px; padding: 0 10px; color: #0b0b0c; font: 800 14px/1 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .02em; }
+  .tag::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--red); border-radius: 3px; box-shadow: -2px 0 0 rgb(255 255 255 / .55), 2px 0 0 #7a0710; }
+  .done .tag { color: var(--ink-2); outline: 1.5px dashed var(--field); outline-offset: -1.5px; border-radius: 3px; }
+  .done .tag::before { opacity: 0; }
+  .tag.mini { min-width: 34px; height: 24px; padding: 0 8px; font-size: 13px; }
+  .tag.mini.zero { color: var(--ink-2); outline: 1.5px dashed var(--field); outline-offset: -1.5px; }
+  .tag.mini.zero::before { opacity: 0; }
+
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--red-text); white-space: nowrap; }
+  .done .state { color: var(--fixed); }
+  .peel-wrap { display: inline-flex; align-items: center; gap: 8px; padding: 4px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .peel { appearance: none; width: 22px; height: 22px; margin: 0; border: 1.5px solid #8a8a93; border-radius: 6px; background: #0f0f11 center / 16px no-repeat; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
+  .peel:active { transform: scale(.9); }
+  .peel:checked { background-color: var(--fixed); border-color: var(--fixed); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b0b0c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+
+  /* Signature motion: a report glitches in when it lands and glitches out when fixed. */
+  @keyframes glitch-in {
+    0% { opacity: 0; transform: translateX(-6px); clip-path: inset(45% 0 45% 0); }
+    30% { opacity: 1; transform: translateX(4px); clip-path: inset(0 0 55% 0); }
+    55% { transform: translateX(-3px); clip-path: inset(50% 0 0 0); }
+    80% { transform: translateX(1px); clip-path: inset(0); }
+  }
+  @keyframes glitch-out {
+    0% { opacity: 1; transform: none; clip-path: inset(0); }
+    25% { opacity: 1; transform: translateX(-4px); clip-path: inset(0 0 52% 0); }
+    50% { opacity: 1; transform: translateX(5px); clip-path: inset(48% 0 0 0); }
+    75% { opacity: 1; transform: translateX(-2px); clip-path: inset(30% 0 35% 0); }
+    100% { opacity: 0; transform: none; clip-path: inset(50% 0 50% 0); }
+  }
+  @keyframes landed { from { background-color: rgb(255 42 58 / .12); } }
+  .fresh { animation: landed 1600ms var(--ease-out); }
+  .fresh .tag::before, .stuck .tag::before { animation: glitch-in 360ms steps(4, end); }
+  .peeled .tag::before { animation: glitch-out 380ms steps(4, end) both; }
+  @media (prefers-reduced-motion: reduce) {
+    .fresh, .fresh .tag::before, .stuck .tag::before, .peeled .tag::before, .wordmark::before, .wordmark::after { animation: none; }
+    .btn, .peel, .drop { transition: none; }
+  }
+
+  /* Admin rail */
+  .new-ws { align-self: start; padding: 20px; }
+  .rail h2 { font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 8px; padding-left: 12px; }
+  .ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .ws { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out); }
+  .ws-name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  .ws-env { display: block; font-size: 13px; color: var(--ink-2); }
+  .ws[aria-current="true"] { background: var(--sheet); border-color: var(--line); }
+  .ws[aria-current="true"] .ws-name { color: #fff; }
+  @media (hover: hover) { .ws:not([aria-current="true"]):hover { background: #121214; } }
+  .new-ws h2 { font-size: 16px; margin-bottom: 14px; }
+  .ws-head { display: grid; gap: 10px; margin-bottom: 22px; }
+  .ws-head h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .env-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .env-row a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
+  .share { display: flex; gap: 8px; align-items: end; padding: 14px; margin-top: 4px; }
+  .share .field { margin: 0; flex: 1; min-width: 0; }
+  .share input { color: var(--ink-2); font-size: 14px; }
+
+  /* Sign-in */
+  .login { min-height: 100dvh; display: grid; place-items: center; padding: 32px 20px; }
+  .login .sheet { width: min(100%, 400px); padding: 32px 28px 28px; border-top: 3px solid var(--red); }
+  .login .lede { color: var(--ink-2); margin: 14px 0 24px; }
+  .key-row { display: flex; gap: 8px; }
+  .key-row input { flex: 1; min-width: 0; }
+  .login .foot { margin-top: 18px; font-size: 13px; color: var(--ink-2); }
+  .login .error { margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo-mark" viewBox="0 0 40 40">
+    <clipPath id="mark-top"><rect width="40" height="20"/></clipPath>
+    <clipPath id="mark-bottom"><rect y="20" width="40" height="20"/></clipPath>
+    <rect x="2" y="2" width="36" height="36" rx="7" fill="#ff2a3a"/>
+    <g fill="none" stroke="#0b0b0c" stroke-width="5">
+      <circle cx="18.5" cy="20" r="9" clip-path="url(#mark-top)"/>
+      <circle cx="22.5" cy="20" r="9" clip-path="url(#mark-bottom)"/>
+    </g>
+    <rect x="0" y="26" width="10" height="3" fill="#0b0b0c"/>
+    <rect x="30" y="10" width="10" height="3" fill="#0b0b0c"/>
+  </symbol>
+</svg>
+<div id="app"></div>
+<script>
+const app = document.getElementById('app');
+const MAX_SHOT = 3 * 1024 * 1024; // Vercel rejects request bodies over 4.5 MB, and base64 adds a third
+const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+const fresh = new Set(); // ids that just landed, so they get the stick-on motion once
+
+const ICONS = {
+  external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
+  image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M16.5 9a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0',
+  copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  circle: 'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8',
+  logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+  plus: 'M12 5v14M5 12h14',
+};
+
+function icon(name) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('class', 'icon');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', ICONS[name]);
+  svg.append(path);
+  return svg;
+}
+
+function el(tag, props, ...children) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children.filter((c) => c != null && c !== false)); // append() inserts text as text, so user input can't become HTML
+  return node;
+}
+
+function field(label, props, hint) {
+  const { tag = 'input', ...rest } = props;
+  const control = el(tag, rest);
+  return [el('label', { className: 'field' }, el('span', { className: 'label' }, label), hint ? el('span', { className: 'hint' }, hint) : null, control), control];
+}
+
+async function api(url, method, body) {
+  const res = await fetch(url, { method: method || 'GET', headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || 'Something went wrong. Please try again.'), { status: res.status });
+  return data;
+}
+
+function timeAgo(t) {
+  const mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return rtf.format(-mins, 'minute');
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return rtf.format(-hours, 'hour');
+  return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+const ordered = (issues) => [...issues].sort((a, b) => a.done - b.done || b.createdAt - a.createdAt);
+const openCount = (issues) => issues.filter((i) => !i.done).length;
+const countText = (issues) => `${openCount(issues)} open · ${issues.length - openCount(issues)} fixed`;
+
+function logo(big) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'mark');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', '#logo-mark');
+  svg.append(use);
+  const word = el('span', { className: 'wordmark' }, 'Error', el('b', {}, '404'));
+  word.dataset.text = 'Error404';
+  return el('span', { className: `logo${big ? ' big' : ''}` }, svg, word);
+}
+
+function band(...children) {
+  return el('header', { className: 'band' }, el('div', { className: 'band-inner' }, ...children));
+}
+
+function envLink(w, className) {
+  return el('a', { className, href: w.envUrl, target: '_blank', rel: 'noopener noreferrer' }, `Open ${w.envName} site`, icon('external'));
+}
+
+function snagRow(issue, token, onToggle) {
+  const li = el('li', { className: `snag${issue.done ? ' done' : ''}${fresh.has(issue.id) ? ' fresh' : ''}` });
+  fresh.delete(issue.id);
+  const shotUrl = issue.shot && `/shots/${token}/${issue.shot}`;
+  const when = el('time', { dateTime: new Date(issue.createdAt).toISOString(), title: new Date(issue.createdAt).toLocaleString() }, timeAgo(issue.createdAt));
+  const fixedBy = issue.done && issue.doneBy ? ` · fixed by ${issue.doneBy}` : '';
+  let end;
+  if (onToggle) {
+    const box = el('input', { type: 'checkbox', className: 'peel', checked: issue.done, onchange: () => onToggle(issue, box, li) });
+    box.setAttribute('aria-label', `Mark #${issue.number} “${issue.title}” as fixed`);
+    end = el('label', { className: 'peel-wrap' }, box, 'Fixed');
+  } else {
+    end = el('span', { className: 'state' }, icon(issue.done ? 'check' : 'circle'), issue.done ? 'Fixed' : 'Open');
+  }
+  li.append(
+    el('span', { className: 'tag' }, el('span', { className: 'sr-only' }, 'Problem '), `#${issue.number ?? '–'}`),
+    el('div', {},
+      el('h3', {}, issue.title),
+      issue.details ? el('p', { className: 'details' }, issue.details) : null,
+      shotUrl ? el('a', { className: 'shot', href: shotUrl, target: '_blank', rel: 'noopener' }, el('img', { src: shotUrl, alt: `Screenshot for #${issue.number}`, loading: 'lazy' })) : null,
+      el('p', { className: 'meta' }, `${issue.reporter || 'Anonymous'} · `, when, fixedBy)),
+    end);
+  return li;
+}
+
+function wall(issues, token, onToggle, emptyText) {
+  if (!issues.length) {
+    return el('div', { className: 'sheet empty' }, el('strong', {}, 'Nothing reported yet'), emptyText);
+  }
+  return el('ul', { className: 'snags' }, ...ordered(issues).map((i) => snagRow(i, token, onToggle)));
+}
+
+async function asJpeg(file) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = Object.assign(document.createElement('canvas'), { width: bitmap.width, height: bitmap.height });
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+}
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Could not read that screenshot.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ---------- Tester page ---------- */
+
+async function testerView(token) {
+  const url = `/api/w/${token}`;
+  let workspace;
+  try {
+    workspace = await api(url);
+  } catch (error) {
+    app.replaceChildren(band(logo()),
+      el('main', { className: 'layout' }, el('div', { className: 'sheet empty' },
+        el('strong', {}, error.status === 404 ? 'This link doesn’t work' : 'Something went wrong'),
+        error.status === 404 ? 'Ask the person who sent it for a new link.' : error.message)));
+    return;
+  }
+  document.title = `${workspace.name} · Error404`;
+  let shot = null;
+
+  const [titleLabel, title] = field('What went wrong?', { required: true, maxLength: 200, placeholder: 'The Pay button does nothing' }, 'Required. One short line is enough.');
+  const [detailsLabel, details] = field('More details', { tag: 'textarea', maxLength: 5000, placeholder: 'What page were you on? What did you click? What did you expect to happen?' }, 'Optional');
+  const [reporterLabel, reporter] = field('Your name', { maxLength: 100, autocomplete: 'name', value: localStorage.getItem('reporter') || '' }, 'Optional, so the team can thank you');
+  const file = el('input', { type: 'file', className: 'sr-only', accept: 'image/png,image/jpeg,image/webp' });
+  const drop = el('label', { className: 'drop' }, icon('image'), el('strong', {}, 'Add a screenshot'), el('span', {}, matchMedia('(pointer: coarse)').matches ? 'Tap to choose a photo or screenshot' : 'Drop it here, paste with Ctrl+V, or click to choose'), file);
+  const preview = el('div', { className: 'preview' });
+  const error = el('p', { className: 'error', role: 'alert' });
+  const notice = el('p', { className: 'notice', role: 'status' });
+  const submit = el('button', { type: 'submit', className: 'btn wide' }, 'Publish problem');
+  const list = el('section', { ariaLabel: 'Reported problems' });
+
+  async function setShot(next) {
+    error.textContent = '';
+    if (next && next.size > MAX_SHOT) next = (await asJpeg(next).catch(() => null)) || next;
+    if (next && next.size > MAX_SHOT) { error.textContent = 'That screenshot is too big. Please use one under 3 MB.'; next = null; }
+    shot = next;
+    if (!shot) { file.value = ''; preview.replaceChildren(); return; }
+    preview.replaceChildren(
+      el('img', { src: URL.createObjectURL(shot), alt: 'Screenshot you added' }),
+      el('button', { type: 'button', className: 'btn quiet small', onclick: () => setShot(null) }, 'Remove'));
+  }
+  file.onchange = () => setShot(file.files[0] || null);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = (e) => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    const image = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
+    if (image) setShot(image);
+  };
+  document.addEventListener('paste', (e) => {
+    const image = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'));
+    if (image) setShot(image);
+  });
+
+  async function refresh() {
+    const { issues } = await api(url);
+    list.replaceChildren(
+      el('div', { className: 'wall-head' }, el('h2', {}, 'Reported problems'), issues.length ? el('span', { className: 'count' }, countText(issues)) : null),
+      wall(issues, token, null, 'Problems you report will appear here with their number.'));
+  }
+
+  const form = el('form', { className: 'sheet report', onsubmit: async (e) => {
+    e.preventDefault();
+    error.textContent = notice.textContent = '';
+    submit.disabled = true;
+    submit.textContent = 'Publishing…';
+    try {
+      localStorage.setItem('reporter', reporter.value);
+      const issue = await api(`${url}/issues`, 'POST', { title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
+      fresh.add(issue.id);
+      title.value = details.value = '';
+      await setShot(null);
+      notice.replaceChildren(icon('check'), `Thanks! Your problem is #${issue.number} on the list.`);
+      await refresh();
+      title.focus();
+    } catch (err) {
+      error.textContent = err.message;
+    }
+    submit.disabled = false;
+    submit.textContent = 'Publish problem';
+  } }, el('h2', {}, 'Report a problem'), titleLabel, detailsLabel, reporterLabel,
+    el('div', { className: 'field' }, el('span', { className: 'label' }, 'Screenshot'), el('span', { className: 'hint' }, 'Optional'), drop, preview),
+    error, submit, notice);
+  notice.style.marginTop = '14px';
+
+  app.replaceChildren(
+    band(logo(), el('span', { className: 'divider' }), el('h1', {}, workspace.name),
+      el('div', { className: 'end' }, el('span', { className: 'chip' }, workspace.envName), envLink(workspace, 'btn on-band small'))),
+    el('main', { className: 'layout tester' }, form, list));
+  await refresh();
+  addEventListener('focus', () => refresh().catch(() => {}));
+}
+
+/* ---------- Sign-in ---------- */
+
+function loginView() {
+  document.title = 'Sign in · Error404';
+  const key = el('input', { type: 'password', id: 'key', required: true, autocomplete: 'current-password', spellcheck: false });
+  const reveal = el('button', { type: 'button', className: 'btn quiet', onclick: () => {
+    const show = key.type === 'password';
+    key.type = show ? 'text' : 'password';
+    reveal.setAttribute('aria-pressed', show);
+    reveal.lastChild.textContent = show ? 'Hide' : 'Show';
+  } }, icon('eye'), el('span', {}, 'Show'));
+  reveal.setAttribute('aria-pressed', 'false');
+  const error = el('p', { className: 'error', role: 'alert' });
+  const submit = el('button', { type: 'submit', className: 'btn wide' }, 'Sign in');
+
+  app.replaceChildren(el('main', { className: 'login' }, el('div', { className: 'sheet' },
+    el('h1', {}, el('span', { className: 'sr-only' }, 'Error404'), logo(true)),
+    el('p', { className: 'lede' }, 'Sign in to your team’s bug board.'),
+    el('form', { onsubmit: async (e) => {
+      e.preventDefault();
+      error.textContent = '';
+      submit.disabled = true;
+      try {
+        await api('/api/login', 'POST', { key: key.value });
+        await adminView();
+      } catch (err) {
+        error.textContent = err.message;
+        submit.disabled = false;
+        key.focus();
+        key.select();
+      }
+    } },
+      el('div', { className: 'field' }, el('label', { className: 'label', htmlFor: 'key' }, 'Your admin key'), el('div', { className: 'key-row' }, key, reveal)),
+      error, submit),
+    el('p', { className: 'foot' }, 'Each teammate has their own key. Ask the owner if you don’t have one.'))));
+  key.focus();
+}
+
+/* ---------- Admin ---------- */
+
+async function adminView() {
+  let data;
+  try {
+    data = await api('/api/workspaces');
+  } catch (err) {
+    if (err.status === 401) return loginView();
+    app.replaceChildren(el('main', { className: 'login' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'Couldn’t load your workspaces'), err.message)));
+    return;
+  }
+  document.title = 'Error404';
+  let { workspaces } = data;
+  let selected = workspaces[0] && workspaces[0].token;
+
+  const nav = el('ul', { className: 'ws-list' });
+  const main = el('section', { ariaLabel: 'Workspace' });
+  const status = el('p', { className: 'error', role: 'alert' });
+
+  const [nameLabel, name] = field('Name', { required: true, maxLength: 100, placeholder: 'Client website' });
+  const [envLabel, envName] = field('Environment', { required: true, maxLength: 50, placeholder: 'Staging', value: 'Staging' });
+  envName.setAttribute('list', 'envs');
+  const [urlLabel, envUrl] = field('Environment URL', { type: 'url', required: true, placeholder: 'https://staging.example.com' });
+  const formError = el('p', { className: 'error', role: 'alert' });
+  formError.style.marginBottom = '12px';
+  const form = el('form', { className: 'sheet new-ws', onsubmit: async (e) => {
+    e.preventDefault();
+    formError.textContent = '';
+    try {
+      const created = await api('/api/workspaces', 'POST', { name: name.value, envName: envName.value, envUrl: envUrl.value });
+      form.reset();
+      selected = created.token;
+      await refresh();
+    } catch (err) {
+      formError.textContent = err.message;
+    }
+  } }, el('h2', {}, 'New workspace'), nameLabel, envLabel,
+    el('datalist', { id: 'envs' }, ...['Development', 'Staging', 'Production'].map((v) => el('option', { value: v }))),
+    urlLabel, formError, el('button', { type: 'submit', className: 'btn wide' }, icon('plus'), 'Create workspace'));
+
+  async function toggle(issue, box, li) {
+    const done = box.checked;
+    li.classList.toggle('done', done);
+    li.classList.remove('peeled', 'stuck');
+    void li.offsetWidth; // restart the animation if toggled twice quickly
+    li.classList.add(done ? 'peeled' : 'stuck');
+    status.textContent = '';
+    try {
+      Object.assign(issue, await api(`/api/workspaces/${selected}/issues/${issue.id}`, 'PATCH', { done }));
+      renderNav();
+      main.querySelector('.count').textContent = countText(current().issues);
+    } catch (err) {
+      box.checked = !done;
+      li.classList.toggle('done', !done);
+      li.classList.remove('peeled', 'stuck');
+      status.textContent = err.status === 401 ? 'You’ve been signed out. Reload to sign in again.' : err.message;
+    }
+  }
+
+  const current = () => workspaces.find((w) => w.token === selected);
+
+  function renderNav() {
+    nav.replaceChildren(...workspaces.map((w) => {
+      const open = openCount(w.issues);
+      const button = el('button', { type: 'button', className: 'ws', onclick: () => { selected = w.token; render(); } },
+        el('span', {}, el('span', { className: 'ws-name' }, w.name), el('span', { className: 'ws-env' }, w.envName)),
+        el('span', { className: `tag mini${open ? '' : ' zero'}` }, el('span', { className: 'sr-only' }, 'Open problems: '), String(open)));
+      button.setAttribute('aria-current', w.token === selected);
+      return el('li', {}, button);
+    }));
+  }
+
+  function render() {
+    renderNav();
+    const w = current();
+    if (!w) {
+      main.replaceChildren(el('div', { className: 'sheet empty' }, el('strong', {}, 'Create your first workspace'),
+        'Give it a name and the environment your testers should use. You’ll get a private link to send them.'));
+      return;
+    }
+    const link = `${location.origin}/w/${w.token}`;
+    const linkBox = el('input', { readOnly: true, value: link, onfocus: (e) => e.target.select() });
+    const copy = el('button', { type: 'button', className: 'btn quiet', onclick: async () => {
+      try { await navigator.clipboard.writeText(link); } catch { linkBox.select(); document.execCommand('copy'); }
+      copy.replaceChildren(icon('check'), 'Copied');
+      setTimeout(() => copy.replaceChildren(icon('copy'), 'Copy link'), 2000);
+    } }, icon('copy'), 'Copy link');
+    main.replaceChildren(
+      el('div', { className: 'ws-head' },
+        el('h1', {}, w.name),
+        el('div', { className: 'env-row' }, el('span', { className: 'chip' }, w.envName), envLink(w)),
+        el('div', { className: 'sheet share' }, el('label', { className: 'field' }, el('span', { className: 'label' }, 'Tester link'), el('span', { className: 'hint' }, 'Anyone with this link can report problems and see this list.'), linkBox), copy)),
+      status,
+      el('div', { className: 'wall-head' }, el('h2', {}, 'Problems'), el('span', { className: 'count' }, countText(w.issues))),
+      wall(w.issues, w.token, toggle, 'Send the tester link above. New reports show up here, newest first.'));
+  }
+
+  async function refresh() {
+    const next = await api('/api/workspaces');
+    workspaces = next.workspaces;
+    render();
+  }
+
+  const signOut = el('button', { type: 'button', className: 'btn on-band small', onclick: async () => {
+    await api('/api/logout', 'POST').catch(() => {});
+    loginView();
+  } }, icon('logout'), 'Sign out');
+
+  app.replaceChildren(
+    band(logo(),
+      el('div', { className: 'end' }, el('span', { className: 'who' }, 'Signed in as ', el('strong', {}, data.admin)), signOut)),
+    el('main', { className: 'layout admin' },
+      el('nav', { className: 'rail', ariaLabel: 'Workspaces' }, el('h2', {}, 'Workspaces'), nav),
+      main,
+      form));
+  render();
+  addEventListener('focus', () => refresh().catch(() => {}));
+}
+
+const testerPath = /^\/w\/([\w-]+)$/.exec(location.pathname);
+if (testerPath) testerView(testerPath[1]); else adminView();
+</script>
+</body>
+</html>

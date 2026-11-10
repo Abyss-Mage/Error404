@@ -1,0 +1,11 @@
+{
+  "name": "bugboard",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test test.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.41.0"
+  }
+}
