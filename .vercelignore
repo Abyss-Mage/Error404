@@ -1,0 +1,5 @@
+.env
+.env.*
+!.env.example
+.impeccable/review/
+node_modules
