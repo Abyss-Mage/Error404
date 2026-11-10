@@ -237,6 +237,19 @@
   .new-ws[open] summary .icon { transform: rotate(45deg); }
   .new-ws form { padding: 4px 16px 18px; }
 
+  /* Admin: connecting AI coding agents (MCP) */
+  .agents { padding: clamp(16px, 2.5vw, 22px); margin-bottom: 26px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; } /* minmax(0) lets the code box scroll instead of widening the page */
+  .agents.off { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .agents h2 { font-size: 17px; margin-bottom: 2px; }
+  .agents-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px 16px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tab { min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid #3a3a40; background: transparent; color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .tab[aria-pressed="true"] { background: rgb(255 42 58 / .14); border-color: var(--red); color: var(--ink); }
+  .snippet-wrap { position: relative; }
+  .snippet { margin: 0; padding: 14px 112px 14px 16px; background: var(--well); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; font: 13px/1.6 var(--mono); color: #e4e4e7; white-space: pre; }
+  .snippet-wrap .btn { position: absolute; top: 8px; right: 8px; }
+  @media (max-width: 720px) { .agents.off { grid-template-columns: minmax(0, 1fr); } }
+
   /* Editing a project or client in place */
   .head-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
   .edit-form { padding: clamp(16px, 2.5vw, 22px); margin-bottom: 18px; }
@@ -766,8 +779,8 @@ async function adminView() {
     const regenerate = iconButton('refresh', 'New key', { className: 'btn quiet small', onclick: async () => {
       if (!confirm(`Make a new key for ${who}? Anyone using the old key is signed out and needs the new one.`)) return;
       try {
-        Object.assign(record, await api(regenUrl, 'POST', {}));
-        render();
+        await api(regenUrl, 'POST', {});
+        await refresh(); // closing confirm() fires a focus refresh, so re-fetch rather than patch `record`
       } catch (err) {
         status.textContent = err.message;
       }
@@ -775,6 +788,53 @@ async function adminView() {
     return el('div', { className: 'sheet access' },
       el('div', {}, el('span', { className: 'label' }, label), el('code', { className: 'key' }, record.reporterKey), el('span', { className: 'hint' }, hint)),
       el('div', { className: 'access-actions' }, copyKey, copyInvite, regenerate));
+  }
+
+  // Ready-to-paste MCP config so Claude Code, Codex or Antigravity can work this project's problems.
+  function agentPanel(w) {
+    const issueToken = async () => {
+      try {
+        await api(`/api/workspaces/${w.token}/agent-token`, 'POST', {});
+        await refresh(); // re-fetch: a focus refresh may have replaced `w` while the request ran
+      } catch (err) {
+        status.textContent = err.message;
+      }
+    };
+    const intro = 'Let Claude Code, Codex or Antigravity list this project’s problems, see screenshots and mark them fixed.';
+    if (!w.agentToken) {
+      return el('div', { className: 'sheet agents off' },
+        el('div', {}, el('h2', {}, 'AI coding agents'), el('p', { className: 'hint' }, intro)),
+        el('button', { type: 'button', className: 'btn quiet small', onclick: issueToken }, icon('plus'), 'Connect an agent'));
+    }
+    const url = `${location.origin}/api/mcp`;
+    const id = `error404-${w.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project'}`;
+    const bearer = `Bearer ${w.agentToken}`;
+    const setups = {
+      'Claude Code': ['Run this in your project folder.', `claude mcp add --transport http ${id} ${url} --header "Authorization: ${bearer}"`],
+      Codex: ['Add this to ~/.codex/config.toml.', `[mcp_servers.${id}]\nurl = "${url}"\nhttp_headers = { "Authorization" = "${bearer}" }`],
+      Antigravity: ['Add this to ~/.gemini/config/mcp_config.json (or .agents/mcp_config.json in the project). Merge it if the file already has servers.',
+        JSON.stringify({ mcpServers: { [id]: { serverUrl: url, headers: { Authorization: bearer } } } }, null, 2)],
+    };
+    let tab = 'Claude Code';
+    const where = el('p', { className: 'hint' });
+    const code = el('code');
+    const copy = iconButton('copy', 'Copy', { className: 'btn quiet small' });
+    copy.onclick = () => copyText(setups[tab][1], copy, 'Copy');
+    const tabs = el('div', { className: 'tabs', ariaLabel: 'Agent' }, ...Object.keys(setups).map((name) =>
+      el('button', { type: 'button', className: 'tab', onclick: () => { tab = name; showTab(); } }, name)));
+    function showTab() {
+      [where.textContent, code.textContent] = setups[tab];
+      tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', b.textContent === tab));
+    }
+    showTab();
+    const regenerate = iconButton('refresh', 'New token', { className: 'btn quiet small', onclick: () => {
+      if (confirm(`Make a new agent token for ${w.name}? Agents using the old one stop working until you paste the new config.`)) issueToken();
+    } });
+    return el('div', { className: 'sheet agents' },
+      el('div', { className: 'agents-head' },
+        el('div', {}, el('h2', {}, 'AI coding agents'), el('p', { className: 'hint' }, `${intro} The config contains a secret token: keep it out of shared repos.`)),
+        regenerate),
+      tabs, where, el('div', { className: 'snippet-wrap' }, el('pre', { className: 'snippet' }, code), copy));
   }
 
   function projectEditForm(w) {
@@ -812,6 +872,7 @@ async function adminView() {
         hint: `Testers enter this at ${location.host} to report problems in this project.`,
         invite: () => `Please report problems with ${w.name} at ${location.origin}\nKey: ${w.reporterKey}`,
       }),
+      agentPanel(w),
       status,
       ...problemList(w.issues, w.token, toggle, 'Send the project key to your testers. New reports show up here, newest first.'));
   }

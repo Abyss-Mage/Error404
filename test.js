@@ -129,6 +129,42 @@ test('admin and reporter flow', async (t) => {
   const clients = (await (await fetch(`${base}/api/workspaces`, { headers: { cookie: admin } })).json()).clients;
   assert.deepEqual(clients.map((c) => [c.name, c.reporterKey]), [['Acme', newClientKey]], 'admins see clients and their keys');
 
+  // MCP: an agent token reaches one project only
+  const mcpUrl = `${base}/api/mcp`;
+  const rpc = async (agentToken, method, params, id = 1) => {
+    const r = await fetch(mcpUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${agentToken}` }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
+    return { status: r.status, body: r.status === 200 ? await r.json() : null };
+  };
+  assert.equal((await fetch(`${base}/api/workspaces/${ws.token}/agent-token`, json('POST', {}, reporter))).status, 401, 'only admins create agent tokens');
+  const { agentToken } = await (await fetch(`${base}/api/workspaces/${ws.token}/agent-token`, json('POST', {}, admin))).json();
+  assert.match(agentToken, /^e404_[\w-]{32}$/);
+  assert.equal((await rpc('e404_wrong', 'tools/list')).status, 401, 'bad token is refused');
+  assert.equal((await fetch(mcpUrl, json('POST', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, admin))).status, 401, 'admin cookie is not an agent token');
+  const init = (await rpc(agentToken, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } })).body;
+  assert.equal(init.result.serverInfo.name, 'error404');
+  assert.match(init.result.instructions, /App/);
+  const note = await fetch(mcpUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${agentToken}` }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+  assert.equal(note.status, 202, 'notifications get an empty 202');
+  assert.deepEqual((await rpc(agentToken, 'tools/list')).body.result.tools.map((t) => t.name), ['list_problems', 'get_problem', 'mark_fixed']);
+  const call = async (name, args) => (await rpc(agentToken, 'tools/call', { name, arguments: args })).body.result;
+  const open = JSON.parse((await call('list_problems', {})).content[0].text);
+  assert.equal(open.project, 'App');
+  assert.deepEqual(open.problems.map((p) => p.number), [1], 'only open problems by default (#2 was fixed)');
+  const two = await call('get_problem', { number: 2 });
+  assert.equal(JSON.parse(two.content[0].text).status, 'fixed');
+  assert.deepEqual(two.content[1], { type: 'image', data: PNG.toString('base64'), mimeType: 'image/png' }, 'screenshot comes back as an image');
+  assert.equal((await call('mark_fixed', { number: 1 })).content[0].text, '#1 is now fixed.');
+  assert.equal(JSON.parse((await call('list_problems', { status: 'all' })).content[0].text).problems.find((p) => p.number === 1).fixedBy, 'AI agent');
+  assert.equal((await call('get_problem', { number: 99 })).isError, true, 'unknown number is a tool error, not a crash');
+  const otherIssue = JSON.parse((await call('list_problems', { status: 'all' })).content[0].text).problems.find((p) => p.title === 'From client');
+  assert.equal(otherIssue, undefined, 'problems from other projects are invisible');
+  assert.equal((await rpc(agentToken, 'resources/list')).body.error.code, -32601);
+  const { agentToken: newAgentToken } = await (await fetch(`${base}/api/workspaces/${ws.token}/agent-token`, json('POST', {}, admin))).json();
+  assert.equal((await rpc(agentToken, 'tools/list')).status, 401, 'a new token cuts off the old one');
+  assert.equal((await rpc(newAgentToken, 'tools/list')).status, 200);
+  const view2 = await (await fetch(`${base}/api/reporter`, { headers: { cookie: (await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).headers.get('set-cookie').split(';')[0] } })).json();
+  assert.ok(!JSON.stringify(view2).includes('e404_'), 'reporters never see agent tokens');
+
   // Sign-out clears both cookies
   assert.match((await fetch(`${base}/api/logout`, json('POST', {}, admin))).headers.get('set-cookie'), /^admin=; .*Max-Age=0/);
   assert.match((await fetch(`${base}/api/reporter/logout`, json('POST', {}))).headers.get('set-cookie'), /^reporter=; .*Max-Age=0/);

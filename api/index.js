@@ -224,6 +224,104 @@ async function clientProjects(list) {
 
 const publicIssues = async (workspaceToken) => parseAll(await store.hgetall(`issues:${workspaceToken}`));
 
+/* ---------- MCP: lets a coding agent work through one project's problems ---------- */
+
+// Agent tokens are per project, sent as "Authorization: Bearer <token>". New token = old one stops working.
+const agentHash = (t) => sha256(`error404-agent:${t}`).toString('hex');
+
+async function setAgentToken(workspace) {
+  if (workspace.agentToken) await store.hdel('agent-tokens', agentHash(workspace.agentToken));
+  workspace.agentToken = `e404_${crypto.randomBytes(24).toString('base64url')}`;
+  await store.hset('agent-tokens', { [agentHash(workspace.agentToken)]: workspace.token });
+  await saveWorkspace(workspace);
+}
+
+async function agentWorkspace(req) {
+  const bearer = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
+  const workspaceToken = bearer && (await store.hget('agent-tokens', agentHash(bearer[1])));
+  if (!workspaceToken) fail(401, 'Missing or invalid agent token');
+  return workspaceFor(workspaceToken);
+}
+
+const MCP_TOOLS = [
+  {
+    name: 'list_problems',
+    description: 'List problems testers reported in this project, newest first: number, title, details, reporter, status, and whether there is a screenshot.',
+    inputSchema: { type: 'object', properties: { status: { type: 'string', enum: ['open', 'fixed', 'all'], description: 'Which problems to list. Default: open.' } } },
+  },
+  {
+    name: 'get_problem',
+    description: 'Get one problem by its number, including its screenshot if it has one.',
+    inputSchema: { type: 'object', properties: { number: { type: 'integer', description: 'The problem number, e.g. 3 for #3.' } }, required: ['number'] },
+  },
+  {
+    name: 'mark_fixed',
+    description: 'Mark a problem fixed once you have fixed it (or set fixed to false to reopen it). Testers see the change.',
+    inputSchema: { type: 'object', properties: { number: { type: 'integer' }, fixed: { type: 'boolean', description: 'Default: true.' } }, required: ['number'] },
+  },
+];
+
+const problemSummary = (i) => ({
+  number: i.number, title: i.title, details: i.details || undefined, reporter: i.reporter || 'Anonymous',
+  status: i.done ? 'fixed' : 'open', fixedBy: i.doneBy || undefined, reportedAt: new Date(i.createdAt).toISOString(), screenshot: Boolean(i.shot),
+});
+
+async function callTool(w, name, args) {
+  const issues = await publicIssues(w.token);
+  const find = () => (Number.isInteger(args.number) && issues.find((i) => i.number === args.number)) || fail(404, `There is no problem #${args.number} in ${w.name}.`);
+  if (name === 'list_problems') {
+    const status = args.status || 'open';
+    const problems = issues.filter((i) => status === 'all' || (status === 'fixed') === i.done).sort((a, b) => b.createdAt - a.createdAt).map(problemSummary);
+    return [{ type: 'text', text: JSON.stringify({ project: w.name, environment: `${w.envName}: ${w.envUrl}`, problems }, null, 2) }];
+  }
+  if (name === 'get_problem') {
+    const issue = find();
+    const content = [{ type: 'text', text: JSON.stringify(problemSummary(issue), null, 2) }];
+    const data = issue.shot && (await store.hget(`shots:${w.token}`, issue.shot));
+    if (data) content.push({ type: 'image', data, mimeType: SHOT_TYPES[issue.shot.split('.').pop()] });
+    return content;
+  }
+  if (name === 'mark_fixed') {
+    const issue = find();
+    issue.done = args.fixed !== false;
+    issue.doneBy = issue.done ? 'AI agent' : null;
+    await store.hset(`issues:${w.token}`, { [issue.id]: JSON.stringify(issue) });
+    return [{ type: 'text', text: `#${issue.number} is now ${issue.done ? 'fixed' : 'open'}.` }];
+  }
+  return fail(404, `Unknown tool: ${name}`);
+}
+
+// shortcut: stateless JSON replies only (no SSE stream or sessions), which is all three tools need;
+// switch to @modelcontextprotocol/sdk if the server ever needs to push notifications.
+async function handleMcp(req, res) {
+  const w = await agentWorkspace(req);
+  const msg = await readJson(req);
+  if (msg.id === undefined) { res.writeHead(202); return res.end(); } // notifications get no reply
+  const reply = (result) => send(res, 200, { jsonrpc: '2.0', id: msg.id, result });
+  switch (msg.method) {
+    case 'initialize':
+      return reply({
+        protocolVersion: msg.params?.protocolVersion || '2025-06-18',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'error404', version: '1.0.0' },
+        instructions: `Bug reports from testers of "${w.name}" (${w.envName}: ${w.envUrl}). List open problems, read one with its screenshot, fix it in the code, then mark it fixed.`,
+      });
+    case 'ping':
+      return reply({});
+    case 'tools/list':
+      return reply({ tools: MCP_TOOLS });
+    case 'tools/call':
+      try {
+        return reply({ content: await callTool(w, msg.params?.name, msg.params?.arguments || {}) });
+      } catch (error) {
+        if (!error.status) throw error;
+        return reply({ content: [{ type: 'text', text: error.message }], isError: true });
+      }
+    default:
+      return send(res, 200, { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `Method not found: ${msg.method}` } });
+  }
+}
+
 /* ---------- Screenshots ---------- */
 
 // Trust the bytes, not the client's content type; this also rules out SVG, which can carry scripts.
@@ -289,6 +387,16 @@ const routes = [
     await saveWorkspace(workspace);
     send(res, 200, workspace);
   }],
+
+  ['POST', /^\/api\/workspaces\/([\w-]+)\/agent-token$/, async (req, res, workspaceToken) => {
+    currentAdmin(req);
+    const workspace = await workspaceFor(workspaceToken);
+    await setAgentToken(workspace);
+    send(res, 200, { agentToken: workspace.agentToken });
+  }],
+
+  ['POST', /^\/api\/mcp$/, handleMcp],
+  ['GET', /^\/api\/mcp$/, (req, res) => { res.writeHead(405, { Allow: 'POST' }); res.end(); }], // no server-to-client stream
 
   ['POST', /^\/api\/clients$/, async (req, res) => {
     currentAdmin(req);
