@@ -1,4 +1,4 @@
-// One Vercel function handles every /api/* and /shots/* request (see vercel.json); server.js runs it locally.
+// One Vercel function handles every /api/* and /shots/* request (see vercel.json); dev-server.js runs it locally.
 const crypto = require('node:crypto');
 const { Redis } = require('@upstash/redis');
 

@@ -2,7 +2,7 @@
   "name": "bugboard",
   "private": true,
   "scripts": {
-    "start": "node --env-file-if-exists=.env server.js",
+    "start": "node --env-file-if-exists=.env dev-server.js",
     "test": "node --test test.js"
   },
   "dependencies": {

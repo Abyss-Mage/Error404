@@ -9,7 +9,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const json = (method, body, cookie) => ({ method, headers: { 'Content-Type': 'application/json', ...(cookie && { cookie }) }, body: JSON.stringify(body) });
 
 test('workspace flow', async (t) => {
-  const server = spawn(process.execPath, [path.join(__dirname, 'server.js')], { env: { ...process.env, PORT, ADMIN_KEY: '', ADMIN_KEYS: 'Sam:sam-key-0123456789abcdef, Alex:alex-key-0123456789abcdef, Weak:short' } });
+  const server = spawn(process.execPath, [path.join(__dirname, 'dev-server.js')], { env: { ...process.env, PORT, ADMIN_KEY: '', ADMIN_KEYS: 'Sam:sam-key-0123456789abcdef, Alex:alex-key-0123456789abcdef, Weak:short' } });
   await new Promise((resolve) => server.stdout.once('data', resolve));
   t.after(() => server.kill());
 

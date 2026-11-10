@@ -1,4 +1,4 @@
-// Local stand-in for Vercel: serves index.html for pages and hands everything else to the API function.
+// Local stand-in for Vercel (not named server.js, which Vercel would auto-deploy as the whole backend): serves index.html for pages and hands everything else to the API function.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
