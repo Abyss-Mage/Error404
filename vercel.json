@@ -1,4 +1,5 @@
 {
+  "framework": null,
   "rewrites": [
     { "source": "/admin", "destination": "/index.html" },
     { "source": "/w/:token", "destination": "/index.html" },
