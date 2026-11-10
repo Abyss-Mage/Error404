@@ -172,18 +172,54 @@ async function saveWorkspace(workspace) {
   await store.hset('workspaces', { [workspace.token]: JSON.stringify(workspace) });
 }
 
+// "reporter-keys" maps a key hash to a project token, or to "client:<id>" for a client key.
+async function issueKey(record, target) {
+  if (record.reporterKey) await store.hdel('reporter-keys', reporterHash(record.reporterKey));
+  record.reporterKey = newReporterKey();
+  await store.hset('reporter-keys', { [reporterHash(record.reporterKey)]: target });
+}
+
 async function setReporterKey(workspace) {
-  if (workspace.reporterKey) await store.hdel('reporter-keys', reporterHash(workspace.reporterKey));
-  workspace.reporterKey = newReporterKey();
-  await store.hset('reporter-keys', { [reporterHash(workspace.reporterKey)]: workspace.token });
+  await issueKey(workspace, workspace.token);
   await saveWorkspace(workspace);
 }
 
-async function reporterWorkspace(req) {
+const saveClient = (client) => store.hset('clients', { [client.id]: JSON.stringify(client) });
+
+async function clientFor(id) {
+  const json = await store.hget('clients', id);
+  return json ? JSON.parse(json) : fail(404, 'Client not found');
+}
+
+// Which projects the signed-in reporter may see: one for a project key, the client's list for a client key.
+async function reporterAccess(req) {
   const cookie = readCookie(req, 'reporter');
-  const workspaceToken = cookie && (await store.hget('reporter-keys', cookie));
-  if (!workspaceToken) fail(401, 'Enter your project key to continue');
-  return workspaceFor(workspaceToken);
+  const target = cookie && (await store.hget('reporter-keys', cookie));
+  if (!target) fail(401, 'Enter your key to continue');
+  if (!target.startsWith('client:')) return { tokens: [target], client: null };
+  const json = await store.hget('clients', target.slice('client:'.length));
+  if (!json) fail(401, 'Enter your key to continue');
+  const client = JSON.parse(json);
+  return { tokens: client.projects, client: client.name };
+}
+
+// Shared by create and edit; the URL becomes a link on the reporter page, so block javascript: and friends.
+function projectFields(body) {
+  const name = text(body.name, 100);
+  const envName = text(body.envName, 50);
+  const envUrl = text(body.envUrl, 500);
+  if (!name || !envName) fail(400, 'Name and environment are required');
+  let protocol;
+  try { protocol = new URL(envUrl).protocol; } catch {}
+  if (protocol !== 'http:' && protocol !== 'https:') fail(400, 'Environment URL must start with http:// or https://');
+  return { name, envName, envUrl };
+}
+
+// Clients may only be linked to projects that exist.
+async function clientProjects(list) {
+  if (!Array.isArray(list)) fail(400, 'Invalid request');
+  const existing = await store.hgetall('workspaces');
+  return [...new Set(list)].filter((t) => typeof t === 'string' && existing && existing[t]);
 }
 
 const publicIssues = async (workspaceToken) => parseAll(await store.hgetall(`issues:${workspaceToken}`));
@@ -236,23 +272,50 @@ const routes = [
       if (!w.reporterKey) await setReporterKey(w); // workspaces made before project keys existed
       w.issues = await publicIssues(w.token);
     }));
-    send(res, 200, { admin: admin.name, workspaces });
+    const clients = parseAll(await store.hgetall('clients')).sort((a, b) => a.createdAt - b.createdAt);
+    send(res, 200, { admin: admin.name, workspaces, clients });
   }],
 
   ['POST', /^\/api\/workspaces$/, async (req, res) => {
     currentAdmin(req);
-    const body = await readJson(req);
-    const name = text(body.name, 100);
-    const envName = text(body.envName, 50);
-    const envUrl = text(body.envUrl, 500);
-    if (!name || !envName) fail(400, 'Name and environment are required');
-    let protocol;
-    try { protocol = new URL(envUrl).protocol; } catch {}
-    // The URL becomes a link on the reporter page, so block javascript: and friends.
-    if (protocol !== 'http:' && protocol !== 'https:') fail(400, 'Environment URL must start with http:// or https://');
-    const workspace = { token: token(), name, envName, envUrl, createdAt: Date.now() };
+    const workspace = { token: token(), ...projectFields(await readJson(req)), createdAt: Date.now() };
     await setReporterKey(workspace);
     send(res, 201, { ...workspace, issues: [] });
+  }],
+
+  ['PATCH', /^\/api\/workspaces\/([\w-]+)$/, async (req, res, workspaceToken) => {
+    currentAdmin(req);
+    const workspace = Object.assign(await workspaceFor(workspaceToken), projectFields(await readJson(req)));
+    await saveWorkspace(workspace);
+    send(res, 200, workspace);
+  }],
+
+  ['POST', /^\/api\/clients$/, async (req, res) => {
+    currentAdmin(req);
+    const body = await readJson(req);
+    const name = text(body.name, 100) || fail(400, 'A client name is required');
+    const client = { id: crypto.randomUUID(), name, projects: await clientProjects(body.projects || []), createdAt: Date.now() };
+    await issueKey(client, `client:${client.id}`);
+    await saveClient(client);
+    send(res, 201, client);
+  }],
+
+  ['PATCH', /^\/api\/clients\/([\w-]+)$/, async (req, res, id) => {
+    currentAdmin(req);
+    const client = await clientFor(id);
+    const body = await readJson(req);
+    if (body.name !== undefined) client.name = text(body.name, 100) || fail(400, 'A client name is required');
+    if (body.projects !== undefined) client.projects = await clientProjects(body.projects);
+    await saveClient(client);
+    send(res, 200, client);
+  }],
+
+  ['POST', /^\/api\/clients\/([\w-]+)\/key$/, async (req, res, id) => {
+    currentAdmin(req);
+    const client = await clientFor(id);
+    await issueKey(client, `client:${client.id}`);
+    await saveClient(client);
+    send(res, 200, { reporterKey: client.reporterKey });
   }],
 
   ['POST', /^\/api\/workspaces\/([\w-]+)\/key$/, async (req, res, workspaceToken) => {
@@ -278,10 +341,10 @@ const routes = [
     await assertNotLockedOut(req);
     const { key } = await readJson(req);
     const hash = typeof key === 'string' && normalizeKey(key).length === 12 && reporterHash(key);
-    const workspaceToken = hash && (await store.hget('reporter-keys', hash));
-    if (!workspaceToken) {
+    const target = hash && (await store.hget('reporter-keys', hash));
+    if (!target) {
       await recordFailedLogin(req);
-      fail(401, 'That project key isn’t right. Check it with the person who sent it.');
+      fail(401, 'That key isn’t right. Check it with the person who sent it.');
     }
     setCookie(req, res, 'reporter', hash, SESSION_SECONDS);
     send(res, 200, { ok: true });
@@ -293,13 +356,21 @@ const routes = [
   }],
 
   ['GET', /^\/api\/reporter$/, async (req, res) => {
-    const { token: workspaceToken, name, envName, envUrl } = await reporterWorkspace(req);
-    send(res, 200, { token: workspaceToken, name, envName, envUrl, issues: await publicIssues(workspaceToken) });
+    const { tokens, client } = await reporterAccess(req);
+    const projects = await Promise.all(tokens.map(async (t) => {
+      const json = await store.hget('workspaces', t);
+      if (!json) return null;
+      const { name, envName, envUrl } = JSON.parse(json);
+      return { token: t, name, envName, envUrl, issues: await publicIssues(t) };
+    }));
+    send(res, 200, { client, projects: projects.filter(Boolean) });
   }],
 
   ['POST', /^\/api\/reporter\/issues$/, async (req, res) => {
-    const { token: workspaceToken } = await reporterWorkspace(req);
+    const { tokens } = await reporterAccess(req);
     const body = await readJson(req);
+    const workspaceToken = body.project;
+    if (!tokens.includes(workspaceToken)) fail(404, 'Project not found');
     const title = text(body.title, 200);
     if (!title) fail(400, 'A title is required');
     const issue = {
@@ -319,8 +390,8 @@ const routes = [
   // Only admins, or reporters signed in to this project, can see its screenshots.
   ['GET', /^\/shots\/([\w-]+)\/([\w-]+\.(png|jpg|webp))$/, async (req, res, workspaceToken, name, ext) => {
     if (!findAdmin(req)) {
-      const cookie = readCookie(req, 'reporter');
-      if (!cookie || (await store.hget('reporter-keys', cookie)) !== workspaceToken) fail(404, 'Not found');
+      const { tokens } = await reporterAccess(req).catch(() => fail(404, 'Not found'));
+      if (!tokens.includes(workspaceToken)) fail(404, 'Not found');
     }
     const base64 = (await store.hget(`shots:${workspaceToken}`, name)) || fail(404, 'Not found');
     res.writeHead(200, { 'Content-Type': SHOT_TYPES[ext], 'Cache-Control': 'private, max-age=31536000, immutable' });

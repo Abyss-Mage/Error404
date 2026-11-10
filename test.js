@@ -51,21 +51,23 @@ test('admin and reporter flow', async (t) => {
   assert.equal(rLogin.status, 200, 'key is accepted in any case, with spaces instead of dashes');
   const reporter = cookieOf(rLogin);
   const view = await (await fetch(`${base}/api/reporter`, { headers: { cookie: reporter } })).json();
-  assert.equal(view.name, 'App');
+  assert.deepEqual(view.projects.map((x) => x.name), ['App'], 'a project key sees one project');
+  assert.equal(view.client, null);
   assert.equal(view.reporterKey, undefined, 'reporters never see the key in API responses');
 
   // Reporting
   const issuesUrl = `${base}/api/reporter/issues`;
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x' }))).status, 401, 'reporting needs the project key');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: '  ' }, reporter))).status, 400, 'title is required');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', project: ws.token }))).status, 401, 'reporting needs the project key');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: '  ', project: ws.token }, reporter))).status, 400, 'title is required');
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: svg }, reporter))).status, 400, 'SVG is rejected');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: svg, project: ws.token }, reporter))).status, 400, 'SVG is rejected');
   const huge = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)]).toString('base64');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: huge }, reporter))).status, 413, 'oversized screenshot');
-  const plain = await (await fetch(issuesUrl, json('POST', { title: 'No screenshot' }, reporter))).json();
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: huge, project: ws.token }, reporter))).status, 413, 'oversized screenshot');
+  const plain = await (await fetch(issuesUrl, json('POST', { title: 'No screenshot', project: ws.token }, reporter))).json();
   assert.equal(plain.shot, null, 'screenshot is optional');
-  const issue = await (await fetch(issuesUrl, json('POST', { title: 'Broken', reporter: 'Sam', shot: PNG.toString('base64') }, reporter))).json();
+  const issue = await (await fetch(issuesUrl, json('POST', { title: 'Broken', reporter: 'Sam', shot: PNG.toString('base64'), project: ws.token }, reporter))).json();
   assert.deepEqual([plain.number, issue.number], [1, 2], 'issues are numbered per workspace');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', project: other.token }, reporter))).status, 404, 'a project key cannot report into another project');
 
   // Screenshots: admins and this project's reporters only
   const shotUrl = `${base}/shots/${ws.token}/${issue.shot}`;
@@ -83,7 +85,7 @@ test('admin and reporter flow', async (t) => {
   assert.equal((await fetch(patchUrl, json('PATCH', { done: true }, reporter))).status, 401, 'reporters cannot check off');
   assert.equal((await fetch(patchUrl, json('PATCH', { done: true }, admin))).status, 200);
   const after = await (await fetch(`${base}/api/reporter`, { headers: { cookie: reporter } })).json();
-  const fixed = after.issues.find((i) => i.id === issue.id);
+  const fixed = after.projects[0].issues.find((i) => i.id === issue.id);
   assert.equal(fixed.done, true);
   assert.equal(fixed.doneBy, 'Alex', 'records who fixed it');
 
@@ -94,6 +96,36 @@ test('admin and reporter flow', async (t) => {
   assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: ws.reporterKey }))).status, 401, 'old key no longer works');
   assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).status, 200, 'new key works');
   assert.equal((await fetch(`${base}/api/workspaces/${ws.token}/key`, json('POST', {}, reporter))).status, 401, 'only admins regenerate keys');
+
+  // Editing a project
+  const editUrl = `${base}/api/workspaces/${other.token}`;
+  assert.equal((await fetch(editUrl, json('PATCH', { name: 'Renamed', envName: 'QA', envUrl: 'https://qa.example.com' }, reporter))).status, 401, 'only admins edit projects');
+  assert.equal((await fetch(editUrl, json('PATCH', { name: 'Renamed', envName: 'QA', envUrl: 'javascript:alert(1)' }, admin))).status, 400, 'edits are validated');
+  const edited = await (await fetch(editUrl, json('PATCH', { name: 'Renamed', envName: 'QA', envUrl: 'https://qa.example.com' }, admin))).json();
+  assert.deepEqual([edited.name, edited.envName, edited.envUrl, edited.reporterKey], ['Renamed', 'QA', 'https://qa.example.com', other.reporterKey], 'edit keeps the project key');
+
+  // Clients: one key for several projects
+  assert.equal((await fetch(`${base}/api/clients`, json('POST', { name: 'Acme' }, reporter))).status, 401, 'only admins create clients');
+  const client = await (await fetch(`${base}/api/clients`, json('POST', { name: 'Acme', projects: [ws.token, other.token, 'made-up'] }, admin))).json();
+  assert.deepEqual(client.projects, [ws.token, other.token], 'unknown projects are dropped');
+  assert.match(client.reporterKey, /^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}$/);
+  const clientCookie = cookieOf(await fetch(`${base}/api/reporter/login`, json('POST', { key: client.reporterKey })));
+  const clientView = await (await fetch(`${base}/api/reporter`, { headers: { cookie: clientCookie } })).json();
+  assert.equal(clientView.client, 'Acme');
+  assert.deepEqual(clientView.projects.map((x) => x.name), ['App', 'Renamed'], 'a client key sees all its projects');
+  assert.equal((await fetch(shotUrl, { headers: { cookie: clientCookie } })).status, 200, 'clients see screenshots of their projects');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'From client', project: other.token }, clientCookie))).status, 201, 'clients report into any of their projects');
+
+  // Unlinking a project removes access; a new client key signs out the old one
+  await fetch(`${base}/api/clients/${client.id}`, json('PATCH', { projects: [other.token] }, admin));
+  assert.deepEqual((await (await fetch(`${base}/api/reporter`, { headers: { cookie: clientCookie } })).json()).projects.map((x) => x.name), ['Renamed']);
+  assert.equal((await fetch(shotUrl, { headers: { cookie: clientCookie } })).status, 404, 'unlinked project screenshots are hidden');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', project: ws.token }, clientCookie))).status, 404, 'cannot report into an unlinked project');
+  const { reporterKey: newClientKey } = await (await fetch(`${base}/api/clients/${client.id}/key`, json('POST', {}, admin))).json();
+  assert.notEqual(newClientKey, client.reporterKey);
+  assert.equal((await fetch(`${base}/api/reporter`, { headers: { cookie: clientCookie } })).status, 401, 'old client key session ends');
+  const clients = (await (await fetch(`${base}/api/workspaces`, { headers: { cookie: admin } })).json()).clients;
+  assert.deepEqual(clients.map((c) => [c.name, c.reporterKey]), [['Acme', newClientKey]], 'admins see clients and their keys');
 
   // Sign-out clears both cookies
   assert.match((await fetch(`${base}/api/logout`, json('POST', {}, admin))).headers.get('set-cookie'), /^admin=; .*Max-Age=0/);

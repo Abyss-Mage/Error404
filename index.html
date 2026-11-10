@@ -137,7 +137,6 @@
   .reporter-page { grid-template-columns: minmax(0, 1fr); }
   .admin-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "nav" "form" "main"; }
   .admin-page > nav { grid-area: nav; min-width: 0; }
-  .admin-page > .new-ws { grid-area: form; }
   .admin-page > section { grid-area: main; min-width: 0; }
   @media (min-width: 1000px) {
     .reporter-page { grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); }
@@ -207,29 +206,48 @@
   .fresh .tag::before, .stuck .tag::before { animation: glitch-in 360ms steps(4, end); }
   .peeled .tag::before { animation: glitch-out 380ms steps(4, end) both; }
 
-  /* Admin: workspace rail (vertical on desktop, a swipeable strip on smaller screens) */
+  /* Project and client lists: a swipeable strip everywhere, except the desktop admin rail, which stacks. */
   .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-left: 4px; }
   .rail-head h2 { font-size: 13px; font-weight: 700; color: var(--ink-2); }
-  .ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-  .ws { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 52px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .rail-group + .rail-group { margin-top: 18px; }
+  .ws-list { list-style: none; margin: 0 calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
+  .ws-list::-webkit-scrollbar { display: none; }
+  .ws-list li { flex: 0 0 auto; scroll-snap-align: start; }
+  .ws { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 168px; max-width: 260px; min-height: 52px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sheet); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
   .ws-name { display: block; font-weight: 600; overflow-wrap: anywhere; line-height: 1.3; }
   .ws-env { display: block; font-size: 12.5px; color: var(--ink-2); }
-  .ws[aria-current="true"] { background: var(--sheet); border-color: #3a3a40; }
-  @media (hover: hover) { .ws:not([aria-current="true"]):hover { background: #121214; } }
-  @media (max-width: 959px) {
-    .ws-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; scrollbar-width: none; }
-    .ws-list::-webkit-scrollbar { display: none; }
-    .ws-list li { flex: 0 0 auto; scroll-snap-align: start; }
-    .ws { width: auto; min-width: 168px; max-width: 240px; background: var(--sheet); border-color: var(--line); }
-    .ws[aria-current="true"] { border-color: var(--red); }
+  .ws[aria-current="true"] { border-color: var(--red); }
+  @media (hover: hover) { .ws:not([aria-current="true"]):hover { border-color: var(--field); } }
+  .empty-note { font-size: 13px; color: var(--ink-2); padding: 4px; }
+  @media (min-width: 960px) {
+    .admin-page .ws-list { display: grid; gap: 4px; margin: 0; padding: 0; overflow: visible; }
+    .admin-page .ws { min-width: 0; max-width: none; width: 100%; background: transparent; border-color: transparent; }
+    .admin-page .ws[aria-current="true"] { background: var(--sheet); border-color: #3a3a40; }
+    .admin-page .ws:not([aria-current="true"]):hover { background: #121214; border-color: transparent; }
   }
+  .switcher { margin-bottom: clamp(14px, 2vw, 20px); }
 
-  .new-ws { align-self: start; }
+  .rail-forms { grid-area: form; display: grid; gap: 12px; align-self: start; }
   .new-ws summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; font-weight: 650; cursor: pointer; list-style: none; border-radius: 12px; }
   .new-ws summary::-webkit-details-marker { display: none; }
   .new-ws summary .icon { color: var(--red-text); transition: transform 200ms var(--ease-out); }
   .new-ws[open] summary .icon { transform: rotate(45deg); }
   .new-ws form { padding: 4px 16px 18px; }
+
+  /* Editing a project or client in place */
+  .head-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 16px; }
+  .edit-form { padding: clamp(16px, 2.5vw, 22px); margin-bottom: 18px; }
+  .edit-form h2 { font-size: 17px; margin-bottom: 14px; }
+  .edit-form .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0 16px; }
+  .form-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .checks { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 2px; }
+  .checks label { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+  @media (hover: hover) { .checks label:hover { background: #1a1a1d; } }
+  .pick { appearance: none; flex: none; width: 24px; height: 24px; margin: 0; border: 1.5px solid #8a8a93; border-radius: 6px; background: var(--well) center / 16px no-repeat; cursor: pointer; }
+  .pick:checked { background-color: var(--red-deep); border-color: var(--red-deep); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
+  .checks-set { border: 0; padding: 0; margin: 0 0 4px; min-width: 0; }
+  .checks-set legend { padding: 0; margin-bottom: 6px; }
+  .reporter-page > .switcher { grid-column: 1 / -1; margin: 0; min-width: 0; }
 
   .ws-head { display: grid; gap: 10px; margin-bottom: 18px; }
   .ws-head h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
@@ -297,6 +315,7 @@ const ICONS = {
   plus: 'M12 5v14M5 12h14',
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6',
   send: 'M4 12l16-8-6 16-3-7z',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
 };
 
 function icon(name) {
@@ -481,8 +500,8 @@ function authView({ title, lede, label, input, submitText, endpoint, onSuccess, 
 function reporterLogin() {
   authView({
     title: 'Report a problem',
-    lede: 'Enter the project key you were given to start reporting.',
-    label: 'Project key',
+    lede: 'Enter the key you were given to start reporting.',
+    label: 'Your key',
     input: el('input', { className: 'key-input', placeholder: 'ABCD-EFGH-JKMN', maxLength: 20, autocapitalize: 'characters', inputMode: 'text' }),
     submitText: 'Continue',
     endpoint: '/api/reporter/login',
@@ -504,19 +523,35 @@ function adminLogin() {
   });
 }
 
+/* ---------- Project / client buttons (rail and reporter switcher) ---------- */
+
+function navButton({ name, sub, count, current, onclick }) {
+  const button = el('button', { type: 'button', className: 'ws', onclick },
+    el('span', {}, el('span', { className: 'ws-name' }, name), sub ? el('span', { className: 'ws-env' }, sub) : null),
+    count == null ? null : el('span', { className: `tag mini${count ? '' : ' zero'}` }, el('span', { className: 'sr-only' }, 'Open problems: '), String(count)));
+  button.setAttribute('aria-current', current);
+  return el('li', {}, button);
+}
+
+// scrollIntoView doesn't move snap-scrolling strips reliably, so set the strip's scroll position directly.
+function revealSelected(list) {
+  const cur = list.querySelector('[aria-current="true"]');
+  if (cur) list.scrollLeft += cur.getBoundingClientRect().left - list.getBoundingClientRect().left - parseFloat(getComputedStyle(list).paddingLeft);
+}
+
 /* ---------- Reporter page ---------- */
 
 async function reporterView() {
-  let workspace;
+  let data;
   try {
-    workspace = await api('/api/reporter');
+    data = await api('/api/reporter');
   } catch (err) {
     if (err.status === 401) return reporterLogin();
     show(el('main', { className: 'auth' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'Something went wrong'), err.message)));
     return;
   }
-  document.title = `${workspace.name} · Error404`;
-  const token = workspace.token;
+  let selected = data.projects[0] && data.projects[0].token;
+  const current = () => data.projects.find((p) => p.token === selected);
   let shot = null;
 
   const [titleLabel, title] = field('What went wrong?', { required: true, maxLength: 200, placeholder: 'The Pay button does nothing' }, 'Required. One short line is enough.');
@@ -530,7 +565,28 @@ async function reporterView() {
   const error = el('p', { className: 'error', role: 'alert' });
   const notice = el('p', { className: 'notice', role: 'status' });
   const submit = el('button', { type: 'submit', className: 'btn wide' }, icon('send'), 'Publish problem');
+  const formTitle = el('h2', {}, 'Report a problem');
+  const header = el('div');
+  const switcher = el('nav', { className: 'switcher', ariaLabel: 'Your projects' });
   const list = el('section', { ariaLabel: 'Reported problems' });
+
+  const onPaste = (e) => {
+    const image = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'));
+    if (image && document.body.contains(drop)) setShot(image);
+  };
+  const signOut = iconButton('logout', 'Sign out', { className: 'btn quiet small', ariaLabel: 'Sign out', onclick: async () => {
+    document.removeEventListener('paste', onPaste);
+    await api('/api/reporter/logout', 'POST').catch(() => {});
+    reporterLogin();
+  } });
+
+  if (!current()) {
+    document.title = 'Error404';
+    show(band({ title: data.client ? [el('h1', {}, data.client)] : [], actions: [signOut] }),
+      el('main', { className: 'layout' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'No projects yet'),
+        'Nothing has been shared with this key yet. Ask the person who sent it.')));
+    return;
+  }
 
   async function setShot(next) {
     error.textContent = '';
@@ -551,15 +607,31 @@ async function reporterView() {
     const image = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
     if (image) setShot(image);
   };
-  const onPaste = (e) => {
-    const image = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'));
-    if (image && document.body.contains(drop)) setShot(image);
-  };
   document.addEventListener('paste', onPaste);
 
+  function render() {
+    const p = current();
+    document.title = `${p.name} · Error404`;
+    header.replaceChildren(band({
+      title: [el('h1', {}, data.client || p.name), el('span', { className: 'chip' }, p.envName)],
+      actions: [envLink(p, 'btn quiet small'), signOut],
+    }));
+    const many = data.projects.length > 1;
+    formTitle.textContent = many ? `Report a problem in ${p.name}` : 'Report a problem';
+    switcher.hidden = !many;
+    switcher.replaceChildren(el('ul', { className: 'ws-list' }, ...data.projects.map((x) => navButton({
+      name: x.name, sub: x.envName, count: openCount(x.issues), current: x.token === selected,
+      onclick: () => { selected = x.token; notice.textContent = ''; render(); },
+    }))));
+    revealSelected(switcher.firstChild);
+    list.replaceChildren(...problemList(p.issues, p.token, null, 'Problems you report will appear here with their number.'));
+  }
+
   async function refresh() {
-    const { issues } = await api('/api/reporter');
-    list.replaceChildren(...problemList(issues, token, null, 'Problems you report will appear here with their number.'));
+    data = await api('/api/reporter');
+    if (!current()) selected = data.projects[0] && data.projects[0].token;
+    if (!current()) return reporterView();
+    render();
   }
 
   const form = el('form', { className: 'sheet report', onsubmit: async (e) => {
@@ -568,7 +640,7 @@ async function reporterView() {
     submit.disabled = true;
     try {
       localStorage.setItem('reporter', reporter.value);
-      const issue = await api('/api/reporter/issues', 'POST', { title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
+      const issue = await api('/api/reporter/issues', 'POST', { project: selected, title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
       fresh.add(issue.id);
       title.value = details.value = '';
       await setShot(null);
@@ -579,24 +651,13 @@ async function reporterView() {
       error.textContent = err.message;
     }
     submit.disabled = false;
-  } }, el('h2', {}, 'Report a problem'), titleLabel, detailsLabel, reporterLabel,
+  } }, formTitle, titleLabel, detailsLabel, reporterLabel,
     el('div', { className: 'field' }, el('span', { className: 'label' }, 'Screenshot'), el('span', { className: 'hint' }, 'Optional'), drop, preview),
     error, submit, notice);
   notice.style.marginTop = '14px';
 
-  const signOut = iconButton('logout', 'Sign out', { className: 'btn quiet small', ariaLabel: 'Sign out', onclick: async () => {
-    document.removeEventListener('paste', onPaste);
-    await api('/api/reporter/logout', 'POST').catch(() => {});
-    reporterLogin();
-  } });
-
-  show(
-    band({
-      title: [el('h1', {}, workspace.name), el('span', { className: 'chip' }, workspace.envName)],
-      actions: [envLink(workspace, 'btn quiet small'), signOut],
-    }),
-    el('main', { className: 'layout reporter-page' }, form, list));
-  await refresh();
+  show(header, el('main', { className: 'layout reporter-page' }, switcher, form, list));
+  render();
   onFocusRefresh(refresh);
 }
 
@@ -612,39 +673,55 @@ async function adminView() {
     return;
   }
   document.title = 'Admin · Error404';
-  let { workspaces } = data;
-  let selected = workspaces[0] && workspaces[0].token;
+  let { workspaces, clients } = data;
+  let sel = { kind: 'project', id: workspaces[0] && workspaces[0].token };
+  let editing = false;
 
-  const nav = el('ul', { className: 'ws-list' });
-  const main = el('section', { ariaLabel: 'Project' });
+  const projectNav = el('ul', { className: 'ws-list' });
+  const clientNav = el('ul', { className: 'ws-list' });
+  const main = el('section', { ariaLabel: 'Details' });
   const status = el('p', { className: 'error', role: 'alert' });
   status.style.marginBottom = '12px';
+  const project = () => sel.kind === 'project' && workspaces.find((w) => w.token === sel.id);
+  const client = () => sel.kind === 'client' && clients.find((c) => c.id === sel.id);
+  const select = (kind, id) => { sel = { kind, id }; editing = false; status.textContent = ''; render(); };
+
+  function createForm(summary, fields, button, submitTo) {
+    const error = el('p', { className: 'error', role: 'alert' });
+    error.style.marginBottom = '12px';
+    const details = el('details', { className: 'sheet new-ws' }, el('summary', {}, icon('plus'), summary),
+      el('form', { onsubmit: async (e) => {
+        e.preventDefault();
+        error.textContent = '';
+        try {
+          await submitTo();
+          e.target.reset();
+          details.open = false;
+          await refresh();
+        } catch (err) {
+          error.textContent = err.message;
+        }
+      } }, ...fields, error, el('button', { type: 'submit', className: 'btn wide' }, button)));
+    return details;
+  }
 
   const [nameLabel, name] = field('Project name', { required: true, maxLength: 100, placeholder: 'Client website' });
   const [envLabel, envName] = field('Environment', { required: true, maxLength: 50, placeholder: 'Staging', value: 'Staging' });
   envName.setAttribute('list', 'envs');
   const [urlLabel, envUrl] = field('Environment URL', { type: 'url', required: true, placeholder: 'https://staging.example.com', inputMode: 'url' });
-  const formError = el('p', { className: 'error', role: 'alert' });
-  formError.style.marginBottom = '12px';
-  const newWs = el('details', { className: 'sheet new-ws', open: !workspaces.length },
-    el('summary', {}, icon('plus'), 'New project'),
-    el('form', { onsubmit: async (e) => {
-      e.preventDefault();
-      formError.textContent = '';
-      try {
-        const created = await api('/api/workspaces', 'POST', { name: name.value, envName: envName.value, envUrl: envUrl.value });
-        e.target.reset();
-        newWs.open = false;
-        selected = created.token;
-        await refresh();
-      } catch (err) {
-        formError.textContent = err.message;
-      }
-    } }, nameLabel, envLabel,
-      el('datalist', { id: 'envs' }, ...['Development', 'Staging', 'Production'].map((v) => el('option', { value: v }))),
-      urlLabel, formError, el('button', { type: 'submit', className: 'btn wide' }, 'Create project')));
+  const newProject = createForm('New project', [nameLabel, envLabel,
+    el('datalist', { id: 'envs' }, ...['Development', 'Staging', 'Production'].map((v) => el('option', { value: v }))), urlLabel],
+    'Create project', async () => {
+      const created = await api('/api/workspaces', 'POST', { name: name.value, envName: envName.value, envUrl: envUrl.value });
+      sel = { kind: 'project', id: created.token };
+    });
+  newProject.open = !workspaces.length;
 
-  const current = () => workspaces.find((w) => w.token === selected);
+  const [clientLabel, clientName] = field('Client name', { required: true, maxLength: 100, placeholder: 'Acme Ltd' }, 'Next you’ll pick which projects they can see.');
+  const newClient = createForm('New client', [clientLabel], 'Create client', async () => {
+    const created = await api('/api/clients', 'POST', { name: clientName.value, projects: [] });
+    sel = { kind: 'client', id: created.id };
+  });
 
   async function toggle(issue, box, li) {
     const done = box.checked;
@@ -654,9 +731,9 @@ async function adminView() {
     li.classList.add(done ? 'peeled' : 'stuck');
     status.textContent = '';
     try {
-      Object.assign(issue, await api(`/api/workspaces/${selected}/issues/${issue.id}`, 'PATCH', { done }));
+      Object.assign(issue, await api(`/api/workspaces/${sel.id}/issues/${issue.id}`, 'PATCH', { done }));
       renderNav();
-      main.querySelector('.count').textContent = countText(current().issues);
+      main.querySelector('.count').textContent = countText(project().issues);
     } catch (err) {
       box.checked = !done;
       li.classList.toggle('done', !done);
@@ -666,59 +743,120 @@ async function adminView() {
   }
 
   function renderNav() {
-    nav.replaceChildren(...workspaces.map((w) => {
-      const open = openCount(w.issues);
-      const button = el('button', { type: 'button', className: 'ws', onclick: () => { selected = w.token; render(); } },
-        el('span', {}, el('span', { className: 'ws-name' }, w.name), el('span', { className: 'ws-env' }, w.envName)),
-        el('span', { className: `tag mini${open ? '' : ' zero'}` }, el('span', { className: 'sr-only' }, 'Open problems: '), String(open)));
-      button.setAttribute('aria-current', w.token === selected);
-      return el('li', {}, button);
-    }));
-    nav.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    projectNav.replaceChildren(...workspaces.map((w) => navButton({
+      name: w.name, sub: w.envName, count: openCount(w.issues), current: sel.kind === 'project' && sel.id === w.token,
+      onclick: () => select('project', w.token),
+    })));
+    clientNav.replaceChildren(...(clients.length ? clients.map((c) => navButton({
+      name: c.name, sub: `${c.projects.length} project${c.projects.length === 1 ? '' : 's'}`, current: sel.kind === 'client' && sel.id === c.id,
+      onclick: () => select('client', c.id),
+    })) : [el('li', { className: 'empty-note' }, 'No clients yet')]));
+    [projectNav, clientNav].forEach(revealSelected);
   }
 
-  function accessPanel(w) {
-    const invite = () => `Please report problems with ${w.name} at ${location.origin}\nProject key: ${w.reporterKey}`;
+  // Key panel shared by projects and clients: copy, copy invite, or issue a new key.
+  function keyPanel(record, { label, hint, invite, regenUrl, who }) {
     const copyKey = iconButton('copy', 'Copy key', { className: 'btn quiet small' });
-    copyKey.onclick = () => copyText(w.reporterKey, copyKey, 'Copy key');
+    copyKey.onclick = () => copyText(record.reporterKey, copyKey, 'Copy key');
     const copyInvite = iconButton('copy', 'Copy invite', { className: 'btn quiet small' });
     copyInvite.onclick = () => copyText(invite(), copyInvite, 'Copy invite');
     const regenerate = iconButton('refresh', 'New key', { className: 'btn quiet small', onclick: async () => {
-      if (!confirm(`Make a new key for ${w.name}? Anyone using the old key is signed out and needs the new one.`)) return;
+      if (!confirm(`Make a new key for ${who}? Anyone using the old key is signed out and needs the new one.`)) return;
       try {
-        Object.assign(w, await api(`/api/workspaces/${w.token}/key`, 'POST', {}));
+        Object.assign(record, await api(regenUrl, 'POST', {}));
         render();
       } catch (err) {
         status.textContent = err.message;
       }
     } });
     return el('div', { className: 'sheet access' },
-      el('div', {},
-        el('span', { className: 'label' }, 'Project key'),
-        el('code', { className: 'key' }, w.reporterKey),
-        el('span', { className: 'hint' }, `Testers enter this at ${location.host}. Anyone with it can report problems and see this list.`)),
+      el('div', {}, el('span', { className: 'label' }, label), el('code', { className: 'key' }, record.reporterKey), el('span', { className: 'hint' }, hint)),
       el('div', { className: 'access-actions' }, copyKey, copyInvite, regenerate));
   }
 
-  function render() {
-    renderNav();
-    const w = current();
-    if (!w) {
-      main.replaceChildren(el('div', { className: 'sheet empty' }, el('strong', {}, 'Create your first project'),
-        'Give it a name and the environment your testers should use. You’ll get a project key to send them.'));
-      return;
-    }
-    main.replaceChildren(
-      el('div', { className: 'ws-head' },
-        el('h1', {}, w.name),
-        el('div', { className: 'env-row' }, el('span', { className: 'chip' }, w.envName), envLink(w))),
-      accessPanel(w),
+  function projectEditForm(w) {
+    const [nl, n] = field('Project name', { required: true, maxLength: 100, value: w.name });
+    const [el2, env] = field('Environment', { required: true, maxLength: 50, value: w.envName });
+    env.setAttribute('list', 'envs');
+    const [ul, url] = field('Environment URL', { type: 'url', required: true, value: w.envUrl, inputMode: 'url' });
+    const error = el('p', { className: 'error', role: 'alert' });
+    error.style.marginBottom = '12px';
+    const cancel = () => { editing = false; render(); };
+    const form = el('form', { className: 'sheet edit-form', onsubmit: async (e) => {
+      e.preventDefault();
+      error.textContent = '';
+      try {
+        Object.assign(w, await api(`/api/workspaces/${w.token}`, 'PATCH', { name: n.value, envName: env.value, envUrl: url.value }));
+        cancel();
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    }, onkeydown: (e) => { if (e.key === 'Escape') cancel(); } },
+      el('h2', {}, 'Edit project'), el('div', { className: 'fields' }, nl, el2, ul), error,
+      el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save changes'), el('button', { type: 'button', className: 'btn quiet', onclick: cancel }, 'Cancel')));
+    requestAnimationFrame(() => n.focus());
+    return form;
+  }
+
+  function renderProject(w) {
+    const head = editing ? projectEditForm(w) : el('div', { className: 'ws-head' },
+      el('div', { className: 'head-row' }, el('h1', {}, w.name),
+        el('button', { type: 'button', className: 'btn quiet small', onclick: () => { editing = true; render(); } }, icon('edit'), 'Edit')),
+      el('div', { className: 'env-row' }, el('span', { className: 'chip' }, w.envName), envLink(w)));
+    main.replaceChildren(head,
+      keyPanel(w, {
+        label: 'Project key', who: w.name, regenUrl: `/api/workspaces/${w.token}/key`,
+        hint: `Testers enter this at ${location.host} to report problems in this project.`,
+        invite: () => `Please report problems with ${w.name} at ${location.origin}\nKey: ${w.reporterKey}`,
+      }),
       status,
       ...problemList(w.issues, w.token, toggle, 'Send the project key to your testers. New reports show up here, newest first.'));
   }
 
+  function renderClient(c) {
+    const [nl, n] = field('Client name', { required: true, maxLength: 100, value: c.name });
+    const checks = el('ul', { className: 'checks' }, ...workspaces.map((w) => el('li', {}, el('label', {},
+      el('input', { type: 'checkbox', className: 'pick', value: w.token, checked: c.projects.includes(w.token) }),
+      el('span', {}, el('span', { className: 'ws-name' }, w.name), el('span', { className: 'ws-env' }, w.envName))))));
+    const error = el('p', { className: 'error', role: 'alert' });
+    error.style.marginBottom = '12px';
+    const saved = el('p', { className: 'notice', role: 'status' });
+    const form = el('form', { className: 'sheet edit-form', onsubmit: async (e) => {
+      e.preventDefault();
+      error.textContent = saved.textContent = '';
+      try {
+        Object.assign(c, await api(`/api/clients/${c.id}`, 'PATCH', { name: n.value, projects: [...checks.querySelectorAll('input:checked')].map((i) => i.value) }));
+        renderNav();
+        main.querySelector('h1').textContent = c.name;
+        saved.replaceChildren(icon('check'), 'Saved');
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    } },
+      el('h2', {}, 'Access'), nl,
+      el('fieldset', { className: 'checks-set' }, el('legend', { className: 'label' }, 'Projects this client can see'),
+        workspaces.length ? checks : el('p', { className: 'hint' }, 'Create a project first.')),
+      error, el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save'), saved));
+    main.replaceChildren(
+      el('div', { className: 'ws-head' }, el('h1', {}, c.name), el('p', { className: 'hint' }, 'One key for every project you share with this client.')),
+      keyPanel(c, {
+        label: 'Client key', who: c.name, regenUrl: `/api/clients/${c.id}/key`,
+        hint: `${c.name} enters this at ${location.host} to see all of their projects.`,
+        invite: () => `Please report problems at ${location.origin}\nYour key: ${c.reporterKey}`,
+      }),
+      status, form);
+  }
+
+  function render() {
+    renderNav();
+    if (project()) return renderProject(project());
+    if (client()) return renderClient(client());
+    main.replaceChildren(el('div', { className: 'sheet empty' }, el('strong', {}, 'Create your first project'),
+      'Give it a name and the environment your testers should use. You’ll get a key to send them.'));
+  }
+
   async function refresh() {
-    workspaces = (await api('/api/workspaces')).workspaces;
+    ({ workspaces, clients } = await api('/api/workspaces'));
     render();
   }
 
@@ -726,15 +864,17 @@ async function adminView() {
     await api('/api/logout', 'POST').catch(() => {});
     adminLogin();
   } });
+  const group = (title, list) => el('div', { className: 'rail-group' }, el('div', { className: 'rail-head' }, el('h2', {}, title)), list);
 
   show(
     band({ actions: [el('span', { className: 'who' }, 'Signed in as ', el('strong', {}, data.admin)), signOut] }),
     el('main', { className: 'layout admin-page' },
-      el('nav', { ariaLabel: 'Projects' }, el('div', { className: 'rail-head' }, el('h2', {}, 'Projects')), nav),
-      newWs,
+      el('nav', { ariaLabel: 'Projects and clients' }, group('Projects', projectNav), group('Clients', clientNav)),
+      el('div', { className: 'rail-forms' }, newProject, newClient),
       main));
   render();
-  onFocusRefresh(refresh);
+  // Don't refresh under someone's unsaved edits.
+  onFocusRefresh(() => (editing || sel.kind === 'client' ? Promise.resolve() : refresh()));
 }
 
 if (location.pathname === '/admin') adminView();
