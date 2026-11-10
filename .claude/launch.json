@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["--env-file-if-exists=.env", "dev-server.js"],
       "port": 3456
+    },
+    {
+      "name": "bugboard-test",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "process.env.PORT='3457';process.env.ADMIN_KEY='local-test-admin-key-0000';require('./dev-server.js')"],
+      "port": 3457
     }
   ]
 }

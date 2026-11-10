@@ -10,24 +10,47 @@ const SHOT_TYPES = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp' };
 const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-// Only the hash commands below are used, so local dev can swap in this in-memory stand-in.
+// Redis HGETALL replies with a flat [field, value, field, value, ...] list; turn it into an object.
+function pairsToObject(flat) {
+  if (!flat) return null;
+  if (!Array.isArray(flat)) return flat;
+  if (!flat.length) return null;
+  const out = {};
+  for (let i = 0; i < flat.length; i += 2) out[flat[i]] = flat[i + 1];
+  return out;
+}
+
+// Only these hash commands are used. Values stay raw strings (we JSON.parse them ourselves),
+// which is why automatic deserialization is off and hgetall needs pairsToObject.
+function upstashStore() {
+  const redis = new Redis({ url: redisUrl, token: redisToken, automaticDeserialization: false });
+  return {
+    hset: (key, fields) => redis.hset(key, fields),
+    hget: (key, field) => redis.hget(key, field),
+    hgetall: async (key) => pairsToObject(await redis.hgetall(key)),
+    hdel: (key, field) => redis.hdel(key, field),
+    hincrby: async (key, field, by) => Number(await redis.hincrby(key, field, by)),
+    expire: (key, seconds) => redis.expire(key, seconds),
+  };
+}
+
 // shortcut: local data is lost on restart; put Upstash keys in .env to keep it.
 function memoryStore() {
   const data = {};
   return {
     hset: async (key, fields) => { Object.assign((data[key] ||= {}), fields); },
     hget: async (key, field) => data[key]?.[field] ?? null,
-    hgetall: async (key) => (data[key] ? { ...data[key] } : null),
+    hgetall: async (key) => (data[key] && Object.keys(data[key]).length ? { ...data[key] } : null),
+    hdel: async (key, field) => { delete data[key]?.[field]; },
     hincrby: async (key, field, by) => ((data[key] ||= {})[field] = Number(data[key][field] || 0) + by),
     expire: async () => {},
   };
 }
 
-const store = redisUrl
-  ? new Redis({ url: redisUrl, token: redisToken, automaticDeserialization: false })
-  : memoryStore();
+const store = redisUrl ? upstashStore() : memoryStore();
 
-// Keys: "workspaces" token -> workspace JSON, "issues:<token>" id -> issue JSON, "shots:<token>" name -> base64 image.
+// Keys: "workspaces" token -> workspace JSON, "issues:<token>" id -> issue JSON,
+// "shots:<token>" name -> base64 image, "reporter-keys" hash of project key -> token.
 const parseAll = (hash) => Object.values(hash || {}).map((v) => JSON.parse(v));
 
 const token = () => crypto.randomBytes(24).toString('base64url');
@@ -71,9 +94,40 @@ const text = (value, max) => (typeof value === 'string' ? value.trim().slice(0, 
 const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest();
 const safeEqual = (a, b) => crypto.timingSafeEqual(sha256(a), sha256(b));
 
+/* ---------- Sessions and brute-force protection ---------- */
+
 const MIN_KEY_LENGTH = 16;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 const MAX_FAILED_LOGINS = 10;
+const SESSION_SECONDS = 30 * 24 * 3600;
+
+function readCookie(req, name) {
+  const match = new RegExp(`(?:^|;\\s*)${name}=([a-f0-9]{64})`).exec(req.headers.cookie || '');
+  return match && match[1];
+}
+
+function setCookie(req, res, name, value, maxAge) {
+  const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${name}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure}`);
+}
+
+// Admin and reporter sign-ins share one counter per connection, so guessing either kind of key is capped.
+const failBucket = () => `login-fails:${Math.floor(Date.now() / 1000 / LOGIN_WINDOW_SECONDS)}`;
+const clientIp = (req) => req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown'; // Vercel sets x-real-ip
+
+async function assertNotLockedOut(req) {
+  if (Number(await store.hget(failBucket(), clientIp(req))) >= MAX_FAILED_LOGINS) {
+    fail(429, 'Too many wrong keys from this connection. Wait 15 minutes and try again.');
+  }
+}
+
+async function recordFailedLogin(req) {
+  const bucket = failBucket();
+  await store.hincrby(bucket, clientIp(req), 1);
+  await store.expire(bucket, LOGIN_WINDOW_SECONDS * 2);
+}
+
+/* ---------- Admins ---------- */
 
 // ADMIN_KEYS="Sam:key1,Alex:key2" gives each teammate their own key, so one can be revoked without
 // touching the others. ADMIN_KEY alone is a single admin called "Admin". Short keys are ignored.
@@ -87,24 +141,54 @@ function admins() {
   return valid.length ? valid : fail(500, `No admin keys of at least ${MIN_KEY_LENGTH} characters are set on the server`);
 }
 
-// The cookie is a hash of the key: any key is cookie-safe, the key itself never leaves the server,
+// The cookie is a hash of the key: the key itself never leaves the server,
 // and removing a key from the env signs that person out everywhere.
-const cookieFor = (key) => sha256(`error404-session:${key}`).toString('hex');
+const adminCookieFor = (key) => sha256(`error404-session:${key}`).toString('hex');
 
-function currentAdmin(req) {
-  const cookie = /(?:^|;\s*)admin=([a-f0-9]{64})/.exec(req.headers.cookie || '');
-  return (cookie && admins().find((a) => safeEqual(cookie[1], cookieFor(a.key)))) || fail(401, 'Sign in required');
+function findAdmin(req) {
+  const cookie = readCookie(req, 'admin');
+  return cookie && admins().find((a) => safeEqual(cookie, adminCookieFor(a.key)));
 }
 
-function sessionCookie(req, value, maxAge) {
-  const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
-  return `admin=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure}`;
-}
+const currentAdmin = (req) => findAdmin(req) || fail(401, 'Sign in required');
+
+/* ---------- Reporters: one key per project ---------- */
+
+// No 0/O, 1/I/L: clients type these keys by hand. 12 chars from 31 symbols is about 59 bits,
+// and sign-in attempts are rate limited.
+const KEY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const normalizeKey = (key) => String(key).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const newReporterKey = () => Array.from({ length: 12 }, () => KEY_ALPHABET[crypto.randomInt(KEY_ALPHABET.length)])
+  .join('').replace(/(.{4})(?=.)/g, '$1-');
+// The reporter cookie and the lookup index both use this hash, so regenerating a key signs out its old sessions.
+const reporterHash = (key) => sha256(`error404-reporter:${normalizeKey(key)}`).toString('hex');
 
 async function workspaceFor(workspaceToken) {
   const json = await store.hget('workspaces', workspaceToken);
   return json ? JSON.parse(json) : fail(404, 'Workspace not found');
 }
+
+async function saveWorkspace(workspace) {
+  await store.hset('workspaces', { [workspace.token]: JSON.stringify(workspace) });
+}
+
+async function setReporterKey(workspace) {
+  if (workspace.reporterKey) await store.hdel('reporter-keys', reporterHash(workspace.reporterKey));
+  workspace.reporterKey = newReporterKey();
+  await store.hset('reporter-keys', { [reporterHash(workspace.reporterKey)]: workspace.token });
+  await saveWorkspace(workspace);
+}
+
+async function reporterWorkspace(req) {
+  const cookie = readCookie(req, 'reporter');
+  const workspaceToken = cookie && (await store.hget('reporter-keys', cookie));
+  if (!workspaceToken) fail(401, 'Enter your project key to continue');
+  return workspaceFor(workspaceToken);
+}
+
+const publicIssues = async (workspaceToken) => parseAll(await store.hgetall(`issues:${workspaceToken}`));
+
+/* ---------- Screenshots ---------- */
 
 // Trust the bytes, not the client's content type; this also rules out SVG, which can carry scripts.
 function imageExtension(buf) {
@@ -125,34 +209,33 @@ async function saveScreenshot(workspaceToken, base64) {
   return name;
 }
 
+/* ---------- Routes ---------- */
+
 const routes = [
   ['POST', /^\/api\/login$/, async (req, res) => {
-    // Vercel sets x-real-ip to the caller's address; locally it falls back to the socket.
-    const ip = req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown';
-    const bucket = `login-fails:${Math.floor(Date.now() / 1000 / LOGIN_WINDOW_SECONDS)}`;
-    if (Number(await store.hget(bucket, ip)) >= MAX_FAILED_LOGINS) {
-      fail(429, 'Too many wrong keys from this connection. Wait 15 minutes and try again.');
-    }
+    await assertNotLockedOut(req);
     const { key } = await readJson(req);
     const admin = typeof key === 'string' && admins().find((a) => safeEqual(key.trim(), a.key));
     if (!admin) {
-      await store.hincrby(bucket, ip, 1);
-      await store.expire(bucket, LOGIN_WINDOW_SECONDS * 2);
+      await recordFailedLogin(req);
       fail(401, 'That key isn’t right. Check for extra spaces and try again.');
     }
-    res.setHeader('Set-Cookie', sessionCookie(req, cookieFor(admin.key), 30 * 24 * 3600));
+    setCookie(req, res, 'admin', adminCookieFor(admin.key), SESSION_SECONDS);
     send(res, 200, { name: admin.name });
   }],
 
   ['POST', /^\/api\/logout$/, (req, res) => {
-    res.setHeader('Set-Cookie', sessionCookie(req, '', 0));
+    setCookie(req, res, 'admin', '', 0);
     send(res, 200, { ok: true });
   }],
 
   ['GET', /^\/api\/workspaces$/, async (req, res) => {
     const admin = currentAdmin(req);
     const workspaces = parseAll(await store.hgetall('workspaces')).sort((a, b) => a.createdAt - b.createdAt);
-    await Promise.all(workspaces.map(async (w) => { w.issues = parseAll(await store.hgetall(`issues:${w.token}`)); }));
+    await Promise.all(workspaces.map(async (w) => {
+      if (!w.reporterKey) await setReporterKey(w); // workspaces made before project keys existed
+      w.issues = await publicIssues(w.token);
+    }));
     send(res, 200, { admin: admin.name, workspaces });
   }],
 
@@ -165,11 +248,18 @@ const routes = [
     if (!name || !envName) fail(400, 'Name and environment are required');
     let protocol;
     try { protocol = new URL(envUrl).protocol; } catch {}
-    // The URL becomes a link on the tester page, so block javascript: and friends.
+    // The URL becomes a link on the reporter page, so block javascript: and friends.
     if (protocol !== 'http:' && protocol !== 'https:') fail(400, 'Environment URL must start with http:// or https://');
     const workspace = { token: token(), name, envName, envUrl, createdAt: Date.now() };
-    await store.hset('workspaces', { [workspace.token]: JSON.stringify(workspace) });
+    await setReporterKey(workspace);
     send(res, 201, { ...workspace, issues: [] });
+  }],
+
+  ['POST', /^\/api\/workspaces\/([\w-]+)\/key$/, async (req, res, workspaceToken) => {
+    currentAdmin(req);
+    const workspace = await workspaceFor(workspaceToken);
+    await setReporterKey(workspace);
+    send(res, 200, { reporterKey: workspace.reporterKey });
   }],
 
   ['PATCH', /^\/api\/workspaces\/([\w-]+)\/issues\/([\w-]+)$/, async (req, res, workspaceToken, id) => {
@@ -184,14 +274,31 @@ const routes = [
     send(res, 200, issue);
   }],
 
-  ['GET', /^\/api\/w\/([\w-]+)$/, async (req, res, workspaceToken) => {
-    const { name, envName, envUrl } = await workspaceFor(workspaceToken);
-    const issues = parseAll(await store.hgetall(`issues:${workspaceToken}`));
-    send(res, 200, { name, envName, envUrl, issues });
+  ['POST', /^\/api\/reporter\/login$/, async (req, res) => {
+    await assertNotLockedOut(req);
+    const { key } = await readJson(req);
+    const hash = typeof key === 'string' && normalizeKey(key).length === 12 && reporterHash(key);
+    const workspaceToken = hash && (await store.hget('reporter-keys', hash));
+    if (!workspaceToken) {
+      await recordFailedLogin(req);
+      fail(401, 'That project key isn’t right. Check it with the person who sent it.');
+    }
+    setCookie(req, res, 'reporter', hash, SESSION_SECONDS);
+    send(res, 200, { ok: true });
   }],
 
-  ['POST', /^\/api\/w\/([\w-]+)\/issues$/, async (req, res, workspaceToken) => {
-    await workspaceFor(workspaceToken);
+  ['POST', /^\/api\/reporter\/logout$/, (req, res) => {
+    setCookie(req, res, 'reporter', '', 0);
+    send(res, 200, { ok: true });
+  }],
+
+  ['GET', /^\/api\/reporter$/, async (req, res) => {
+    const { token: workspaceToken, name, envName, envUrl } = await reporterWorkspace(req);
+    send(res, 200, { token: workspaceToken, name, envName, envUrl, issues: await publicIssues(workspaceToken) });
+  }],
+
+  ['POST', /^\/api\/reporter\/issues$/, async (req, res) => {
+    const { token: workspaceToken } = await reporterWorkspace(req);
     const body = await readJson(req);
     const title = text(body.title, 200);
     if (!title) fail(400, 'A title is required');
@@ -209,8 +316,12 @@ const routes = [
     send(res, 201, issue);
   }],
 
-  // Screenshots are stored per workspace, so a link only ever reaches its own workspace's images.
+  // Only admins, or reporters signed in to this project, can see its screenshots.
   ['GET', /^\/shots\/([\w-]+)\/([\w-]+\.(png|jpg|webp))$/, async (req, res, workspaceToken, name, ext) => {
+    if (!findAdmin(req)) {
+      const cookie = readCookie(req, 'reporter');
+      if (!cookie || (await store.hget('reporter-keys', cookie)) !== workspaceToken) fail(404, 'Not found');
+    }
     const base64 = (await store.hget(`shots:${workspaceToken}`, name)) || fail(404, 'Not found');
     res.writeHead(200, { 'Content-Type': SHOT_TYPES[ext], 'Cache-Control': 'private, max-age=31536000, immutable' });
     res.end(Buffer.from(base64, 'base64'));
@@ -219,7 +330,7 @@ const routes = [
 
 module.exports = async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'no-referrer'); // keeps the private workspace link out of Referer headers
+  res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Robots-Tag', 'noindex');
   try {
     const { pathname } = new URL(req.url, 'http://localhost');
@@ -233,3 +344,5 @@ module.exports = async (req, res) => {
     send(res, error.status || 500, { error: error.status ? error.message : 'Something went wrong' });
   }
 };
+
+module.exports.pairsToObject = pairsToObject;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3CclipPath id='t'%3E%3Crect width='40' height='20'/%3E%3C/clipPath%3E%3CclipPath id='b'%3E%3Crect y='20' width='40' height='20'/%3E%3C/clipPath%3E%3Crect x='2' y='2' width='36' height='36' rx='7' fill='%23ff2a3a'/%3E%3Cg fill='none' stroke='%230b0b0c' stroke-width='5'%3E%3Ccircle cx='18.5' cy='20' r='9' clip-path='url(%23t)'/%3E%3Ccircle cx='22.5' cy='20' r='9' clip-path='url(%23b)'/%3E%3C/g%3E%3Crect x='0' y='26' width='10' height='3' fill='%230b0b0c'/%3E%3Crect x='30' y='10' width='10' height='3' fill='%230b0b0c'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#000000">
@@ -12,6 +12,7 @@
     --wall: #0b0b0c;
     --sheet: #151517;
     --raised: #1d1d20;
+    --well: #0f0f11;
     --ink: #f2f2f3;
     --ink-2: #a6a6ad;
     --line: #2a2a2f;
@@ -19,25 +20,29 @@
     --red: #ff2a3a;
     --red-text: #ff5a66;
     --red-deep: #d1121f;
+    --red-deep-hover: #b30f1b;
     --fixed: #3ddc84;
     --ease-out: cubic-bezier(.23, 1, .32, 1);
     --shadow: 0 14px 34px -18px rgb(0 0 0 / .9);
+    --gutter: clamp(14px, 4vw, 28px);
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
     color-scheme: dark;
     scrollbar-color: #3a3a40 var(--wall);
   }
   * { box-sizing: border-box; }
-  html { background: var(--wall); }
-  body { margin: 0; color: var(--ink); font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; caret-color: var(--red); -webkit-font-smoothing: antialiased; }
+  html { background: var(--wall); -webkit-text-size-adjust: 100%; }
+  body { margin: 0; min-height: 100dvh; color: var(--ink); font: 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; caret-color: var(--red); -webkit-font-smoothing: antialiased; }
   ::selection { background: rgb(255 42 58 / .42); color: #fff; }
   h1, h2, h3, p { margin: 0; }
   h1, h2, h3 { line-height: 1.2; text-wrap: balance; letter-spacing: -0.01em; }
   a { color: var(--red-text); text-underline-offset: 3px; }
   :focus-visible { outline: 2px solid var(--red-text); outline-offset: 2px; }
+  img { max-width: 100%; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   .icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
   /* Logo: mark + wordmark; the wordmark glitches for a split second every few seconds. */
-  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
   .logo .mark { width: 30px; height: 30px; flex: none; }
   .wordmark { position: relative; display: inline-block; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .wordmark b { color: var(--red); font-weight: inherit; }
@@ -61,43 +66,65 @@
     96% { opacity: 0; }
   }
 
-  /* Header band */
-  .band { background: #000; border-bottom: 2px solid var(--red); }
-  .band-inner { max-width: 1160px; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
-  .band h1 { font-size: 28px; font-weight: 750; min-width: 0; overflow-wrap: anywhere; }
-  .band .divider { width: 1px; align-self: stretch; background: var(--line); }
-  .band .end { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-  .who { font-size: 14px; color: var(--ink-2); }
+  /* Header: brand | title | actions on wide screens; brand + actions, then title, on phones. */
+  .band { background: #000; border-bottom: 2px solid var(--red); padding-top: env(safe-area-inset-top); }
+  .band-inner { max-width: 1200px; margin: 0 auto; padding: 14px var(--gutter); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "brand title actions"; align-items: center; gap: 10px 20px; }
+  .band .brand { grid-area: brand; }
+  .band .title { grid-area: title; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; padding-left: 20px; border-left: 1px solid var(--line); }
+  .band .title:empty { display: none; }
+  .band h1 { font-size: clamp(19px, 2.4vw, 26px); font-weight: 750; overflow-wrap: anywhere; }
+  .band .actions { grid-area: actions; display: flex; align-items: center; gap: 8px 12px; }
+  .who { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
   .who strong { color: var(--ink); }
-  .chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: rgb(255 42 58 / .14); color: var(--red-text); }
+  .chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 99px; font-size: 12.5px; font-weight: 700; background: rgb(255 42 58 / .14); color: var(--red-text); white-space: nowrap; }
+  @media (max-width: 720px) {
+    .band-inner { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand actions" "title title"; }
+    .band .title { padding-left: 0; border-left: 0; }
+  }
+  @media (max-width: 520px) {
+    /* Header buttons become icon-only; their text stays for screen readers. */
+    .band .btn-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .band .btn.small { width: 40px; padding: 0; }
+    .who { display: none; }
+    .logo .wordmark { font-size: 17px; }
+    .logo .mark { width: 26px; height: 26px; }
+  }
 
   /* Buttons */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: var(--red-deep); color: #fff; font: inherit; font-weight: 650; text-decoration: none; cursor: pointer; transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: var(--red-deep); color: #fff; font: inherit; font-weight: 650; text-decoration: none; white-space: nowrap; cursor: pointer; transition: transform 160ms var(--ease-out), background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
   .btn:active { transform: scale(.97); }
   .btn:disabled { opacity: .55; cursor: default; transform: none; }
-  .btn.quiet, .btn.on-band { background: var(--raised); color: var(--ink); border-color: #3a3a40; }
-  .btn.small { min-height: 34px; padding: 0 12px; font-size: 14px; }
+  .btn.quiet { background: var(--raised); color: var(--ink); border-color: #3a3a40; }
+  .btn.small { min-height: 36px; padding: 0 12px; font-size: 14px; }
   .btn.wide { width: 100%; }
   @media (hover: hover) {
-    .btn:not(:disabled):hover { background: #b30f1b; }
-    .btn.quiet:not(:disabled):hover, .btn.on-band:hover { background: #26262a; border-color: var(--field); }
+    .btn:not(:disabled):hover { background: var(--red-deep-hover); }
+    .btn.quiet:not(:disabled):hover { background: #26262a; border-color: var(--field); }
+  }
+  @media (pointer: coarse) {
+    .btn { min-height: 46px; }
+    .btn.small { min-height: 40px; }
   }
 
   /* Sheets and fields */
-  .sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
   .field { display: grid; gap: 6px; margin-bottom: 18px; }
   .label { font-weight: 600; font-size: 14px; }
   .hint { font-size: 13px; color: var(--ink-2); }
-  input:not([type=checkbox]):not([type=file]), textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--field); border-radius: 7px; background: #0f0f11; color: var(--ink); font: inherit; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
+  input:not([type=checkbox]):not([type=file]), textarea { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--field); border-radius: 8px; background: var(--well); color: var(--ink); font: inherit; transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out); }
   input:focus-visible, textarea:focus-visible { outline: none; border-color: var(--red); box-shadow: 0 0 0 3px rgb(255 42 58 / .25); }
-  textarea { min-height: 104px; resize: vertical; }
+  textarea { min-height: 110px; resize: vertical; }
   ::placeholder { color: #8a8a93; }
+  @media (max-width: 640px) {
+    /* 16px stops iOS from zooming into fields on focus. */
+    input:not([type=checkbox]):not([type=file]), textarea { font-size: 16px; }
+  }
   .error { color: var(--red-text); font-size: 14px; font-weight: 600; }
   .notice { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--fixed); font-weight: 600; }
   .error:empty, .notice:empty { display: none; }
 
   /* Screenshot drop zone */
-  .drop { display: grid; justify-items: center; gap: 4px; padding: 18px 14px; border: 1.5px dashed var(--field); border-radius: 8px; background: #101012; color: var(--ink-2); text-align: center; font-size: 14px; cursor: pointer; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
+  .drop { display: grid; justify-items: center; gap: 4px; padding: 18px 14px; border: 1.5px dashed var(--field); border-radius: 10px; background: #101012; color: var(--ink-2); text-align: center; font-size: 14px; cursor: pointer; transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out); }
   .drop strong { color: var(--ink); }
   .drop:focus-within { outline: 2px solid var(--red-text); outline-offset: 2px; }
   .drop.over, .drop:hover { border-color: var(--red); background: #1a0e10; }
@@ -105,62 +132,59 @@
   .preview img { width: 96px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }
   .preview:empty { display: none; }
 
-  /* Layouts */
-  .layout { max-width: 1160px; margin: 0 auto; padding: 28px 24px 72px; display: grid; gap: 28px; align-items: start; }
-  .tester { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); }
-  .admin { grid-template-columns: 270px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "nav main" "form main"; }
-  .admin > nav { grid-area: nav; }
-  .admin > .new-ws { grid-area: form; }
-  .admin > section { grid-area: main; }
-  .report { padding: 22px; position: sticky; top: 20px; }
-  .report h2 { font-size: 18px; margin-bottom: 18px; }
-  @media (max-width: 880px) {
-    .tester, .admin { grid-template-columns: minmax(0, 1fr); }
-    .admin { grid-template-rows: none; grid-template-areas: "nav" "main" "form"; }
-    .report { position: static; }
-    .band h1 { font-size: 22px; }
-    .band .divider { display: none; }
+  /* Page layouts */
+  .layout { max-width: 1200px; margin: 0 auto; padding: clamp(18px, 3vw, 32px) var(--gutter) calc(64px + env(safe-area-inset-bottom)); display: grid; gap: clamp(18px, 3vw, 32px); align-items: start; }
+  .reporter-page { grid-template-columns: minmax(0, 1fr); }
+  .admin-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: "nav" "form" "main"; }
+  .admin-page > nav { grid-area: nav; min-width: 0; }
+  .admin-page > .new-ws { grid-area: form; }
+  .admin-page > section { grid-area: main; min-width: 0; }
+  @media (min-width: 1000px) {
+    .reporter-page { grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); }
+    .reporter-page .report { position: sticky; top: 20px; }
   }
+  @media (min-width: 960px) {
+    .admin-page { grid-template-columns: 272px minmax(0, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "nav main" "form main"; }
+  }
+  .report { padding: clamp(18px, 2.5vw, 24px); }
+  .report h2 { font-size: 19px; margin-bottom: 18px; }
 
   /* Problem list */
-  .wall-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 12px; }
-  .wall-head h2 { font-size: 18px; }
+  .list-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; margin-bottom: 12px; }
+  .list-head h2 { font-size: 19px; }
   .count { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-  .snags { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); }
+  .snags { list-style: none; margin: 0; padding: 0; background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
   .snag { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 16px; padding: 18px 20px; border-top: 1px solid var(--line); }
   .snag:first-child { border-top: 0; }
   .snag h3 { font-size: 16px; font-weight: 650; overflow-wrap: anywhere; }
   .snag .details { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; color: #d4d4d8; }
-  .snag .shot { display: inline-block; margin-top: 10px; border-radius: 6px; }
-  .snag .shot img { display: block; max-width: min(100%, 360px); max-height: 200px; border-radius: 6px; border: 1px solid var(--line); }
+  .snag .shot { display: inline-block; margin-top: 10px; border-radius: 8px; }
+  .snag .shot img { display: block; max-width: min(100%, 360px); max-height: 220px; object-fit: contain; border-radius: 8px; border: 1px solid var(--line); background: #000; }
   .meta { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
   .done h3 { color: var(--ink-2); text-decoration: line-through; text-decoration-thickness: 1.5px; }
   .done .details { color: var(--ink-2); }
   .empty { padding: 36px 24px; text-align: center; color: var(--ink-2); }
   .empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
-  @media (max-width: 560px) {
-    /* Tag and status share the first line; the text gets the full width below. */
+  @media (max-width: 600px) {
+    /* Number and status share the first line; the text gets the full width below. */
     .snag { grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; padding: 16px; }
     .snag > div { grid-column: 1 / -1; grid-row: 2; }
-    .layout { padding: 20px 14px 56px; }
-    .report { padding: 18px; }
-    .share { flex-wrap: wrap; }
-    .share .btn { width: 100%; }
+    .snag .shot, .snag .shot img { width: 100%; max-width: none; }
   }
 
   /* Error-code tag: a red block with the number; when fixed it glitches out, leaving a dashed outline. */
-  .tag { position: relative; isolation: isolate; justify-self: start; display: inline-grid; place-items: center; min-width: 56px; height: 28px; padding: 0 10px; color: #0b0b0c; font: 800 14px/1 ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .02em; }
+  .tag { position: relative; isolation: isolate; justify-self: start; display: inline-grid; place-items: center; min-width: 56px; height: 28px; padding: 0 10px; color: #0b0b0c; font: 800 14px/1 var(--mono); letter-spacing: .02em; }
   .tag::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--red); border-radius: 3px; box-shadow: -2px 0 0 rgb(255 255 255 / .55), 2px 0 0 #7a0710; }
   .done .tag { color: var(--ink-2); outline: 1.5px dashed var(--field); outline-offset: -1.5px; border-radius: 3px; }
   .done .tag::before { opacity: 0; }
-  .tag.mini { min-width: 34px; height: 24px; padding: 0 8px; font-size: 13px; }
+  .tag.mini { min-width: 30px; height: 22px; padding: 0 7px; font-size: 12.5px; }
   .tag.mini.zero { color: var(--ink-2); outline: 1.5px dashed var(--field); outline-offset: -1.5px; }
   .tag.mini.zero::before { opacity: 0; }
 
   .state { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--red-text); white-space: nowrap; }
   .done .state { color: var(--fixed); }
-  .peel-wrap { display: inline-flex; align-items: center; gap: 8px; padding: 4px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .peel { appearance: none; width: 22px; height: 22px; margin: 0; border: 1.5px solid #8a8a93; border-radius: 6px; background: #0f0f11 center / 16px no-repeat; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
+  .peel-wrap { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .peel { appearance: none; width: 24px; height: 24px; margin: 0; border: 1.5px solid #8a8a93; border-radius: 6px; background: var(--well) center / 16px no-repeat; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out); }
   .peel:active { transform: scale(.9); }
   .peel:checked { background-color: var(--fixed); border-color: var(--fixed); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b0b0c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 
@@ -182,38 +206,62 @@
   .fresh { animation: landed 1600ms var(--ease-out); }
   .fresh .tag::before, .stuck .tag::before { animation: glitch-in 360ms steps(4, end); }
   .peeled .tag::before { animation: glitch-out 380ms steps(4, end) both; }
-  @media (prefers-reduced-motion: reduce) {
-    .fresh, .fresh .tag::before, .stuck .tag::before, .peeled .tag::before, .wordmark::before, .wordmark::after { animation: none; }
-    .btn, .peel, .drop { transition: none; }
+
+  /* Admin: workspace rail (vertical on desktop, a swipeable strip on smaller screens) */
+  .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-left: 4px; }
+  .rail-head h2 { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .ws { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 52px; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .ws-name { display: block; font-weight: 600; overflow-wrap: anywhere; line-height: 1.3; }
+  .ws-env { display: block; font-size: 12.5px; color: var(--ink-2); }
+  .ws[aria-current="true"] { background: var(--sheet); border-color: #3a3a40; }
+  @media (hover: hover) { .ws:not([aria-current="true"]):hover { background: #121214; } }
+  @media (max-width: 959px) {
+    .ws-list { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); margin-inline: calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; scrollbar-width: none; }
+    .ws-list::-webkit-scrollbar { display: none; }
+    .ws-list li { flex: 0 0 auto; scroll-snap-align: start; }
+    .ws { width: auto; min-width: 168px; max-width: 240px; background: var(--sheet); border-color: var(--line); }
+    .ws[aria-current="true"] { border-color: var(--red); }
   }
 
-  /* Admin rail */
-  .new-ws { align-self: start; padding: 20px; }
-  .rail h2 { font-size: 13px; font-weight: 700; color: var(--ink-2); margin-bottom: 8px; padding-left: 12px; }
-  .ws-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-  .ws { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out); }
-  .ws-name { display: block; font-weight: 600; overflow-wrap: anywhere; }
-  .ws-env { display: block; font-size: 13px; color: var(--ink-2); }
-  .ws[aria-current="true"] { background: var(--sheet); border-color: var(--line); }
-  .ws[aria-current="true"] .ws-name { color: #fff; }
-  @media (hover: hover) { .ws:not([aria-current="true"]):hover { background: #121214; } }
-  .new-ws h2 { font-size: 16px; margin-bottom: 14px; }
-  .ws-head { display: grid; gap: 10px; margin-bottom: 22px; }
-  .ws-head h1 { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
-  .env-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-  .env-row a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
-  .share { display: flex; gap: 8px; align-items: end; padding: 14px; margin-top: 4px; }
-  .share .field { margin: 0; flex: 1; min-width: 0; }
-  .share input { color: var(--ink-2); font-size: 14px; }
+  .new-ws { align-self: start; }
+  .new-ws summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; font-weight: 650; cursor: pointer; list-style: none; border-radius: 12px; }
+  .new-ws summary::-webkit-details-marker { display: none; }
+  .new-ws summary .icon { color: var(--red-text); transition: transform 200ms var(--ease-out); }
+  .new-ws[open] summary .icon { transform: rotate(45deg); }
+  .new-ws form { padding: 4px 16px 18px; }
 
-  /* Sign-in */
-  .login { min-height: 100dvh; display: grid; place-items: center; padding: 32px 20px; }
-  .login .sheet { width: min(100%, 400px); padding: 32px 28px 28px; border-top: 3px solid var(--red); }
-  .login .lede { color: var(--ink-2); margin: 14px 0 24px; }
+  .ws-head { display: grid; gap: 10px; margin-bottom: 18px; }
+  .ws-head h1 { font-size: clamp(26px, 4vw, 36px); font-weight: 800; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .env-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .env-row a { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+
+  /* Admin: project key panel */
+  .access { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 20px; padding: clamp(16px, 2.5vw, 22px); margin-bottom: 26px; }
+  .access .key { display: block; margin: 4px 0 6px; font: 800 clamp(20px, 3.4vw, 26px)/1.2 var(--mono); letter-spacing: .06em; color: #fff; overflow-wrap: anywhere; user-select: all; }
+  .access-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  @media (max-width: 720px) {
+    .access { grid-template-columns: minmax(0, 1fr); }
+    .access-actions { justify-content: stretch; }
+    .access-actions .btn { flex: 1 1 140px; }
+  }
+
+  /* Sign-in screens */
+  .auth { min-height: 100dvh; display: grid; place-items: center; padding: 32px var(--gutter) calc(32px + env(safe-area-inset-bottom)); }
+  .auth .sheet { width: min(100%, 420px); padding: clamp(24px, 5vw, 34px) clamp(20px, 5vw, 30px) clamp(22px, 5vw, 28px); border-top: 3px solid var(--red); }
+  .auth h1 { font-size: 22px; margin-top: 22px; }
+  .auth .lede { color: var(--ink-2); margin: 6px 0 22px; }
+  .auth .key-input { font: 700 18px/1.2 var(--mono) !important; letter-spacing: .08em; text-transform: uppercase; }
+  .auth .key-input::placeholder { letter-spacing: .08em; }
   .key-row { display: flex; gap: 8px; }
   .key-row input { flex: 1; min-width: 0; }
-  .login .foot { margin-top: 18px; font-size: 13px; color: var(--ink-2); }
-  .login .error { margin-bottom: 14px; }
+  .auth .error { margin-bottom: 14px; }
+  .auth .foot { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fresh, .fresh .tag::before, .stuck .tag::before, .peeled .tag::before, .wordmark::before, .wordmark::after { animation: none; }
+    .btn, .peel, .drop, .ws, .new-ws summary .icon, input, textarea { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -235,7 +283,8 @@
 const app = document.getElementById('app');
 const MAX_SHOT = 3 * 1024 * 1024; // Vercel rejects request bodies over 4.5 MB, and base64 adds a third
 const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-const fresh = new Set(); // ids that just landed, so they get the stick-on motion once
+const fresh = new Set(); // ids that just landed, so they get the glitch-in motion once
+let focusRefresh = null; // the current page's refresh-on-focus handler, replaced when the view changes
 
 const ICONS = {
   external: 'M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5',
@@ -246,6 +295,8 @@ const ICONS = {
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
   eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   plus: 'M12 5v14M5 12h14',
+  refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6',
+  send: 'M4 12l16-8-6 16-3-7z',
 };
 
 function icon(name) {
@@ -271,6 +322,9 @@ function field(label, props, hint) {
   return [el('label', { className: 'field' }, el('span', { className: 'label' }, label), hint ? el('span', { className: 'hint' }, hint) : null, control), control];
 }
 
+// A button whose text hides on small screens (header), leaving the icon and an accessible name.
+const iconButton = (iconName, label, props) => el('button', { type: 'button', ...props }, icon(iconName), el('span', { className: 'btn-text' }, label));
+
 async function api(url, method, body) {
   const res = await fetch(url, { method: method || 'GET', headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
@@ -291,6 +345,24 @@ const ordered = (issues) => [...issues].sort((a, b) => a.done - b.done || b.crea
 const openCount = (issues) => issues.filter((i) => !i.done).length;
 const countText = (issues) => `${openCount(issues)} open · ${issues.length - openCount(issues)} fixed`;
 
+async function copyText(text, button, label) {
+  try { await navigator.clipboard.writeText(text); } catch { window.prompt('Copy this:', text); return; }
+  button.replaceChildren(icon('check'), el('span', { className: 'btn-text' }, 'Copied'));
+  setTimeout(() => button.replaceChildren(icon('copy'), el('span', { className: 'btn-text' }, label)), 2000);
+}
+
+function show(...children) {
+  if (focusRefresh) removeEventListener('focus', focusRefresh);
+  focusRefresh = null;
+  app.replaceChildren(...children);
+  scrollTo(0, 0);
+}
+
+function onFocusRefresh(refresh) {
+  focusRefresh = () => refresh().catch(() => {});
+  addEventListener('focus', focusRefresh);
+}
+
 function logo(big) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'mark');
@@ -303,12 +375,15 @@ function logo(big) {
   return el('span', { className: `logo${big ? ' big' : ''}` }, svg, word);
 }
 
-function band(...children) {
-  return el('header', { className: 'band' }, el('div', { className: 'band-inner' }, ...children));
+function band({ title, actions }) {
+  return el('header', { className: 'band' }, el('div', { className: 'band-inner' },
+    el('div', { className: 'brand' }, logo()),
+    el('div', { className: 'title' }, ...(title || [])),
+    el('div', { className: 'actions' }, ...(actions || []))));
 }
 
 function envLink(w, className) {
-  return el('a', { className, href: w.envUrl, target: '_blank', rel: 'noopener noreferrer' }, `Open ${w.envName} site`, icon('external'));
+  return el('a', { className, href: w.envUrl, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), el('span', { className: 'btn-text' }, `Open ${w.envName} site`));
 }
 
 function snagRow(issue, token, onToggle) {
@@ -336,11 +411,12 @@ function snagRow(issue, token, onToggle) {
   return li;
 }
 
-function wall(issues, token, onToggle, emptyText) {
-  if (!issues.length) {
-    return el('div', { className: 'sheet empty' }, el('strong', {}, 'Nothing reported yet'), emptyText);
-  }
-  return el('ul', { className: 'snags' }, ...ordered(issues).map((i) => snagRow(i, token, onToggle)));
+function problemList(issues, token, onToggle, emptyText) {
+  const head = el('div', { className: 'list-head' }, el('h2', {}, 'Problems'), el('span', { className: 'count' }, issues.length ? countText(issues) : ''));
+  const body = issues.length
+    ? el('ul', { className: 'snags' }, ...ordered(issues).map((i) => snagRow(i, token, onToggle)))
+    : el('div', { className: 'sheet empty' }, el('strong', {}, 'Nothing reported yet'), emptyText);
+  return [head, body];
 }
 
 async function asJpeg(file) {
@@ -359,32 +435,101 @@ function readAsBase64(file) {
   });
 }
 
-/* ---------- Tester page ---------- */
+/* ---------- Sign-in screens (one for reporters, one for admins) ---------- */
 
-async function testerView(token) {
-  const url = `/api/w/${token}`;
+function authView({ title, lede, label, input, submitText, endpoint, onSuccess, foot }) {
+  document.title = `${title} · Error404`;
+  const error = el('p', { className: 'error', role: 'alert' });
+  const submit = el('button', { type: 'submit', className: 'btn wide' }, submitText);
+  input.id = 'auth-key';
+  input.required = true;
+  input.autocomplete = input.autocomplete || 'off';
+  input.spellcheck = false;
+  const control = input.type === 'password' ? (() => {
+    const reveal = el('button', { type: 'button', className: 'btn quiet', onclick: () => {
+      const showing = input.type === 'password';
+      input.type = showing ? 'text' : 'password';
+      reveal.setAttribute('aria-pressed', showing);
+      reveal.lastChild.textContent = showing ? 'Hide' : 'Show';
+    } }, icon('eye'), el('span', {}, 'Show'));
+    reveal.setAttribute('aria-pressed', 'false');
+    return el('div', { className: 'key-row' }, input, reveal);
+  })() : input;
+
+  show(el('main', { className: 'auth' }, el('div', { className: 'sheet' },
+    logo(true),
+    el('h1', {}, title),
+    el('p', { className: 'lede' }, lede),
+    el('form', { onsubmit: async (e) => {
+      e.preventDefault();
+      error.textContent = '';
+      submit.disabled = true;
+      try {
+        await api(endpoint, 'POST', { key: input.value });
+        await onSuccess();
+      } catch (err) {
+        error.textContent = err.message;
+        submit.disabled = false;
+        input.focus();
+        input.select();
+      }
+    } }, el('div', { className: 'field' }, el('label', { className: 'label', htmlFor: 'auth-key' }, label), control), error, submit),
+    el('p', { className: 'foot' }, ...foot))));
+  input.focus();
+}
+
+function reporterLogin() {
+  authView({
+    title: 'Report a problem',
+    lede: 'Enter the project key you were given to start reporting.',
+    label: 'Project key',
+    input: el('input', { className: 'key-input', placeholder: 'ABCD-EFGH-JKMN', maxLength: 20, autocapitalize: 'characters', inputMode: 'text' }),
+    submitText: 'Continue',
+    endpoint: '/api/reporter/login',
+    onSuccess: reporterView,
+    foot: ['Part of the team? ', el('a', { href: '/admin' }, 'Admin sign in')],
+  });
+}
+
+function adminLogin() {
+  authView({
+    title: 'Admin sign in',
+    lede: 'Manage projects, keys and reported problems.',
+    label: 'Your admin key',
+    input: el('input', { type: 'password', autocomplete: 'current-password' }),
+    submitText: 'Sign in',
+    endpoint: '/api/login',
+    onSuccess: adminView,
+    foot: ['Each teammate has their own key. Reporting a problem? ', el('a', { href: '/' }, 'Use your project key')],
+  });
+}
+
+/* ---------- Reporter page ---------- */
+
+async function reporterView() {
   let workspace;
   try {
-    workspace = await api(url);
-  } catch (error) {
-    app.replaceChildren(band(logo()),
-      el('main', { className: 'layout' }, el('div', { className: 'sheet empty' },
-        el('strong', {}, error.status === 404 ? 'This link doesn’t work' : 'Something went wrong'),
-        error.status === 404 ? 'Ask the person who sent it for a new link.' : error.message)));
+    workspace = await api('/api/reporter');
+  } catch (err) {
+    if (err.status === 401) return reporterLogin();
+    show(el('main', { className: 'auth' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'Something went wrong'), err.message)));
     return;
   }
   document.title = `${workspace.name} · Error404`;
+  const token = workspace.token;
   let shot = null;
 
   const [titleLabel, title] = field('What went wrong?', { required: true, maxLength: 200, placeholder: 'The Pay button does nothing' }, 'Required. One short line is enough.');
-  const [detailsLabel, details] = field('More details', { tag: 'textarea', maxLength: 5000, placeholder: 'What page were you on? What did you click? What did you expect to happen?' }, 'Optional');
+  const [detailsLabel, details] = field('More details', { tag: 'textarea', maxLength: 5000, placeholder: 'What page were you on? What did you tap or click? What did you expect?' }, 'Optional');
   const [reporterLabel, reporter] = field('Your name', { maxLength: 100, autocomplete: 'name', value: localStorage.getItem('reporter') || '' }, 'Optional, so the team can thank you');
   const file = el('input', { type: 'file', className: 'sr-only', accept: 'image/png,image/jpeg,image/webp' });
-  const drop = el('label', { className: 'drop' }, icon('image'), el('strong', {}, 'Add a screenshot'), el('span', {}, matchMedia('(pointer: coarse)').matches ? 'Tap to choose a photo or screenshot' : 'Drop it here, paste with Ctrl+V, or click to choose'), file);
+  const touch = matchMedia('(pointer: coarse)').matches;
+  const drop = el('label', { className: 'drop' }, icon('image'), el('strong', {}, 'Add a screenshot'),
+    el('span', {}, touch ? 'Tap to choose a photo or screenshot' : 'Drop it here, paste with Ctrl+V, or click to choose'), file);
   const preview = el('div', { className: 'preview' });
   const error = el('p', { className: 'error', role: 'alert' });
   const notice = el('p', { className: 'notice', role: 'status' });
-  const submit = el('button', { type: 'submit', className: 'btn wide' }, 'Publish problem');
+  const submit = el('button', { type: 'submit', className: 'btn wide' }, icon('send'), 'Publish problem');
   const list = el('section', { ariaLabel: 'Reported problems' });
 
   async function setShot(next) {
@@ -406,86 +551,53 @@ async function testerView(token) {
     const image = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
     if (image) setShot(image);
   };
-  document.addEventListener('paste', (e) => {
-    const image = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'));
-    if (image) setShot(image);
-  });
+  const onPaste = (e) => {
+    const image = [...(e.clipboardData?.files || [])].find((f) => f.type.startsWith('image/'));
+    if (image && document.body.contains(drop)) setShot(image);
+  };
+  document.addEventListener('paste', onPaste);
 
   async function refresh() {
-    const { issues } = await api(url);
-    list.replaceChildren(
-      el('div', { className: 'wall-head' }, el('h2', {}, 'Reported problems'), issues.length ? el('span', { className: 'count' }, countText(issues)) : null),
-      wall(issues, token, null, 'Problems you report will appear here with their number.'));
+    const { issues } = await api('/api/reporter');
+    list.replaceChildren(...problemList(issues, token, null, 'Problems you report will appear here with their number.'));
   }
 
   const form = el('form', { className: 'sheet report', onsubmit: async (e) => {
     e.preventDefault();
     error.textContent = notice.textContent = '';
     submit.disabled = true;
-    submit.textContent = 'Publishing…';
     try {
       localStorage.setItem('reporter', reporter.value);
-      const issue = await api(`${url}/issues`, 'POST', { title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
+      const issue = await api('/api/reporter/issues', 'POST', { title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
       fresh.add(issue.id);
       title.value = details.value = '';
       await setShot(null);
       notice.replaceChildren(icon('check'), `Thanks! Your problem is #${issue.number} on the list.`);
       await refresh();
-      title.focus();
     } catch (err) {
+      if (err.status === 401) return reporterLogin();
       error.textContent = err.message;
     }
     submit.disabled = false;
-    submit.textContent = 'Publish problem';
   } }, el('h2', {}, 'Report a problem'), titleLabel, detailsLabel, reporterLabel,
     el('div', { className: 'field' }, el('span', { className: 'label' }, 'Screenshot'), el('span', { className: 'hint' }, 'Optional'), drop, preview),
     error, submit, notice);
   notice.style.marginTop = '14px';
 
-  app.replaceChildren(
-    band(logo(), el('span', { className: 'divider' }), el('h1', {}, workspace.name),
-      el('div', { className: 'end' }, el('span', { className: 'chip' }, workspace.envName), envLink(workspace, 'btn on-band small'))),
-    el('main', { className: 'layout tester' }, form, list));
+  const signOut = iconButton('logout', 'Sign out', { className: 'btn quiet small', ariaLabel: 'Sign out', onclick: async () => {
+    document.removeEventListener('paste', onPaste);
+    await api('/api/reporter/logout', 'POST').catch(() => {});
+    reporterLogin();
+  } });
+
+  show(
+    band({
+      title: [el('h1', {}, workspace.name), el('span', { className: 'chip' }, workspace.envName)],
+      actions: [envLink(workspace, 'btn quiet small'), signOut],
+    }),
+    el('main', { className: 'layout reporter-page' }, form, list));
   await refresh();
-  addEventListener('focus', () => refresh().catch(() => {}));
-}
-
-/* ---------- Sign-in ---------- */
-
-function loginView() {
-  document.title = 'Sign in · Error404';
-  const key = el('input', { type: 'password', id: 'key', required: true, autocomplete: 'current-password', spellcheck: false });
-  const reveal = el('button', { type: 'button', className: 'btn quiet', onclick: () => {
-    const show = key.type === 'password';
-    key.type = show ? 'text' : 'password';
-    reveal.setAttribute('aria-pressed', show);
-    reveal.lastChild.textContent = show ? 'Hide' : 'Show';
-  } }, icon('eye'), el('span', {}, 'Show'));
-  reveal.setAttribute('aria-pressed', 'false');
-  const error = el('p', { className: 'error', role: 'alert' });
-  const submit = el('button', { type: 'submit', className: 'btn wide' }, 'Sign in');
-
-  app.replaceChildren(el('main', { className: 'login' }, el('div', { className: 'sheet' },
-    el('h1', {}, el('span', { className: 'sr-only' }, 'Error404'), logo(true)),
-    el('p', { className: 'lede' }, 'Sign in to your team’s bug board.'),
-    el('form', { onsubmit: async (e) => {
-      e.preventDefault();
-      error.textContent = '';
-      submit.disabled = true;
-      try {
-        await api('/api/login', 'POST', { key: key.value });
-        await adminView();
-      } catch (err) {
-        error.textContent = err.message;
-        submit.disabled = false;
-        key.focus();
-        key.select();
-      }
-    } },
-      el('div', { className: 'field' }, el('label', { className: 'label', htmlFor: 'key' }, 'Your admin key'), el('div', { className: 'key-row' }, key, reveal)),
-      error, submit),
-    el('p', { className: 'foot' }, 'Each teammate has their own key. Ask the owner if you don’t have one.'))));
-  key.focus();
+  onFocusRefresh(refresh);
 }
 
 /* ---------- Admin ---------- */
@@ -495,38 +607,44 @@ async function adminView() {
   try {
     data = await api('/api/workspaces');
   } catch (err) {
-    if (err.status === 401) return loginView();
-    app.replaceChildren(el('main', { className: 'login' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'Couldn’t load your workspaces'), err.message)));
+    if (err.status === 401) return adminLogin();
+    show(el('main', { className: 'auth' }, el('div', { className: 'sheet empty' }, el('strong', {}, 'Couldn’t load your projects'), err.message)));
     return;
   }
-  document.title = 'Error404';
+  document.title = 'Admin · Error404';
   let { workspaces } = data;
   let selected = workspaces[0] && workspaces[0].token;
 
   const nav = el('ul', { className: 'ws-list' });
-  const main = el('section', { ariaLabel: 'Workspace' });
+  const main = el('section', { ariaLabel: 'Project' });
   const status = el('p', { className: 'error', role: 'alert' });
+  status.style.marginBottom = '12px';
 
-  const [nameLabel, name] = field('Name', { required: true, maxLength: 100, placeholder: 'Client website' });
+  const [nameLabel, name] = field('Project name', { required: true, maxLength: 100, placeholder: 'Client website' });
   const [envLabel, envName] = field('Environment', { required: true, maxLength: 50, placeholder: 'Staging', value: 'Staging' });
   envName.setAttribute('list', 'envs');
-  const [urlLabel, envUrl] = field('Environment URL', { type: 'url', required: true, placeholder: 'https://staging.example.com' });
+  const [urlLabel, envUrl] = field('Environment URL', { type: 'url', required: true, placeholder: 'https://staging.example.com', inputMode: 'url' });
   const formError = el('p', { className: 'error', role: 'alert' });
   formError.style.marginBottom = '12px';
-  const form = el('form', { className: 'sheet new-ws', onsubmit: async (e) => {
-    e.preventDefault();
-    formError.textContent = '';
-    try {
-      const created = await api('/api/workspaces', 'POST', { name: name.value, envName: envName.value, envUrl: envUrl.value });
-      form.reset();
-      selected = created.token;
-      await refresh();
-    } catch (err) {
-      formError.textContent = err.message;
-    }
-  } }, el('h2', {}, 'New workspace'), nameLabel, envLabel,
-    el('datalist', { id: 'envs' }, ...['Development', 'Staging', 'Production'].map((v) => el('option', { value: v }))),
-    urlLabel, formError, el('button', { type: 'submit', className: 'btn wide' }, icon('plus'), 'Create workspace'));
+  const newWs = el('details', { className: 'sheet new-ws', open: !workspaces.length },
+    el('summary', {}, icon('plus'), 'New project'),
+    el('form', { onsubmit: async (e) => {
+      e.preventDefault();
+      formError.textContent = '';
+      try {
+        const created = await api('/api/workspaces', 'POST', { name: name.value, envName: envName.value, envUrl: envUrl.value });
+        e.target.reset();
+        newWs.open = false;
+        selected = created.token;
+        await refresh();
+      } catch (err) {
+        formError.textContent = err.message;
+      }
+    } }, nameLabel, envLabel,
+      el('datalist', { id: 'envs' }, ...['Development', 'Staging', 'Production'].map((v) => el('option', { value: v }))),
+      urlLabel, formError, el('button', { type: 'submit', className: 'btn wide' }, 'Create project')));
+
+  const current = () => workspaces.find((w) => w.token === selected);
 
   async function toggle(issue, box, li) {
     const done = box.checked;
@@ -547,8 +665,6 @@ async function adminView() {
     }
   }
 
-  const current = () => workspaces.find((w) => w.token === selected);
-
   function renderNav() {
     nav.replaceChildren(...workspaces.map((w) => {
       const open = openCount(w.issues);
@@ -558,57 +674,74 @@ async function adminView() {
       button.setAttribute('aria-current', w.token === selected);
       return el('li', {}, button);
     }));
+    nav.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  function accessPanel(w) {
+    const invite = () => `Please report problems with ${w.name} at ${location.origin}\nProject key: ${w.reporterKey}`;
+    const copyKey = iconButton('copy', 'Copy key', { className: 'btn quiet small' });
+    copyKey.onclick = () => copyText(w.reporterKey, copyKey, 'Copy key');
+    const copyInvite = iconButton('copy', 'Copy invite', { className: 'btn quiet small' });
+    copyInvite.onclick = () => copyText(invite(), copyInvite, 'Copy invite');
+    const regenerate = iconButton('refresh', 'New key', { className: 'btn quiet small', onclick: async () => {
+      if (!confirm(`Make a new key for ${w.name}? Anyone using the old key is signed out and needs the new one.`)) return;
+      try {
+        Object.assign(w, await api(`/api/workspaces/${w.token}/key`, 'POST', {}));
+        render();
+      } catch (err) {
+        status.textContent = err.message;
+      }
+    } });
+    return el('div', { className: 'sheet access' },
+      el('div', {},
+        el('span', { className: 'label' }, 'Project key'),
+        el('code', { className: 'key' }, w.reporterKey),
+        el('span', { className: 'hint' }, `Testers enter this at ${location.host}. Anyone with it can report problems and see this list.`)),
+      el('div', { className: 'access-actions' }, copyKey, copyInvite, regenerate));
   }
 
   function render() {
     renderNav();
     const w = current();
     if (!w) {
-      main.replaceChildren(el('div', { className: 'sheet empty' }, el('strong', {}, 'Create your first workspace'),
-        'Give it a name and the environment your testers should use. You’ll get a private link to send them.'));
+      main.replaceChildren(el('div', { className: 'sheet empty' }, el('strong', {}, 'Create your first project'),
+        'Give it a name and the environment your testers should use. You’ll get a project key to send them.'));
       return;
     }
-    const link = `${location.origin}/w/${w.token}`;
-    const linkBox = el('input', { readOnly: true, value: link, onfocus: (e) => e.target.select() });
-    const copy = el('button', { type: 'button', className: 'btn quiet', onclick: async () => {
-      try { await navigator.clipboard.writeText(link); } catch { linkBox.select(); document.execCommand('copy'); }
-      copy.replaceChildren(icon('check'), 'Copied');
-      setTimeout(() => copy.replaceChildren(icon('copy'), 'Copy link'), 2000);
-    } }, icon('copy'), 'Copy link');
     main.replaceChildren(
       el('div', { className: 'ws-head' },
         el('h1', {}, w.name),
-        el('div', { className: 'env-row' }, el('span', { className: 'chip' }, w.envName), envLink(w)),
-        el('div', { className: 'sheet share' }, el('label', { className: 'field' }, el('span', { className: 'label' }, 'Tester link'), el('span', { className: 'hint' }, 'Anyone with this link can report problems and see this list.'), linkBox), copy)),
+        el('div', { className: 'env-row' }, el('span', { className: 'chip' }, w.envName), envLink(w))),
+      accessPanel(w),
       status,
-      el('div', { className: 'wall-head' }, el('h2', {}, 'Problems'), el('span', { className: 'count' }, countText(w.issues))),
-      wall(w.issues, w.token, toggle, 'Send the tester link above. New reports show up here, newest first.'));
+      ...problemList(w.issues, w.token, toggle, 'Send the project key to your testers. New reports show up here, newest first.'));
   }
 
   async function refresh() {
-    const next = await api('/api/workspaces');
-    workspaces = next.workspaces;
+    workspaces = (await api('/api/workspaces')).workspaces;
     render();
   }
 
-  const signOut = el('button', { type: 'button', className: 'btn on-band small', onclick: async () => {
+  const signOut = iconButton('logout', 'Sign out', { className: 'btn quiet small', ariaLabel: 'Sign out', onclick: async () => {
     await api('/api/logout', 'POST').catch(() => {});
-    loginView();
-  } }, icon('logout'), 'Sign out');
+    adminLogin();
+  } });
 
-  app.replaceChildren(
-    band(logo(),
-      el('div', { className: 'end' }, el('span', { className: 'who' }, 'Signed in as ', el('strong', {}, data.admin)), signOut)),
-    el('main', { className: 'layout admin' },
-      el('nav', { className: 'rail', ariaLabel: 'Workspaces' }, el('h2', {}, 'Workspaces'), nav),
-      main,
-      form));
+  show(
+    band({ actions: [el('span', { className: 'who' }, 'Signed in as ', el('strong', {}, data.admin)), signOut] }),
+    el('main', { className: 'layout admin-page' },
+      el('nav', { ariaLabel: 'Projects' }, el('div', { className: 'rail-head' }, el('h2', {}, 'Projects')), nav),
+      newWs,
+      main));
   render();
-  addEventListener('focus', () => refresh().catch(() => {}));
+  onFocusRefresh(refresh);
 }
 
-const testerPath = /^\/w\/([\w-]+)$/.exec(location.pathname);
-if (testerPath) testerView(testerPath[1]); else adminView();
+if (location.pathname === '/admin') adminView();
+else {
+  if (location.pathname !== '/') history.replaceState(null, '', '/'); // old /w/<token> links land on the key sign-in
+  reporterView();
+}
 </script>
 </body>
 </html>

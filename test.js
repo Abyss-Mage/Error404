@@ -2,65 +2,105 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const { pairsToObject } = require('./api');
 
 const PORT = 34567;
 const base = `http://localhost:${PORT}`;
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 const json = (method, body, cookie) => ({ method, headers: { 'Content-Type': 'application/json', ...(cookie && { cookie }) }, body: JSON.stringify(body) });
+const cookieOf = (res) => res.headers.get('set-cookie').split(';')[0];
 
-test('workspace flow', async (t) => {
+test('Redis HGETALL replies are turned into objects', () => {
+  // Upstash returns a flat [field, value, ...] list when automatic deserialization is off.
+  assert.deepEqual(pairsToObject(['a', '{"x":1}', 'b', '{"x":2}']), { a: '{"x":1}', b: '{"x":2}' });
+  assert.equal(pairsToObject([]), null);
+  assert.equal(pairsToObject(null), null);
+  assert.deepEqual(pairsToObject({ a: '1' }), { a: '1' });
+});
+
+test('admin and reporter flow', async (t) => {
   const server = spawn(process.execPath, [path.join(__dirname, 'dev-server.js')], { env: { ...process.env, PORT, ADMIN_KEY: '', ADMIN_KEYS: 'Sam:sam-key-0123456789abcdef, Alex:alex-key-0123456789abcdef, Weak:short' } });
   await new Promise((resolve) => server.stdout.once('data', resolve));
   t.after(() => server.kill());
 
+  // Admin sign-in
   assert.equal((await fetch(`${base}/api/workspaces`)).status, 401, 'admin API needs sign-in');
   assert.equal((await fetch(`${base}/api/login`, json('POST', { key: 'nope' }))).status, 401);
   assert.equal((await fetch(`${base}/api/login`, json('POST', { key: 'short' }))).status, 401, 'keys under 16 chars are ignored');
   const login = await fetch(`${base}/api/login`, json('POST', { key: 'alex-key-0123456789abcdef' }));
   assert.equal((await login.json()).name, 'Alex');
-  const cookie = login.headers.get('set-cookie').split(';')[0];
+  const admin = cookieOf(login);
   assert.match(login.headers.get('set-cookie'), /HttpOnly; SameSite=Strict/);
   assert.ok(!login.headers.get('set-cookie').includes('alex-key'), 'the key itself is never put in the cookie');
-  assert.equal((await (await fetch(`${base}/api/workspaces`, { headers: { cookie } })).json()).admin, 'Alex');
 
-  const badUrl = await fetch(`${base}/api/workspaces`, json('POST', { name: 'A', envName: 'B', envUrl: 'javascript:alert(1)' }, cookie));
+  // Workspaces get a typeable project key
+  const badUrl = await fetch(`${base}/api/workspaces`, json('POST', { name: 'A', envName: 'B', envUrl: 'javascript:alert(1)' }, admin));
   assert.equal(badUrl.status, 400, 'non-http environment URLs are rejected');
+  const ws = await (await fetch(`${base}/api/workspaces`, json('POST', { name: 'App', envName: 'Staging', envUrl: 'https://staging.example.com' }, admin))).json();
+  assert.match(ws.reporterKey, /^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}$/, 'project key has no look-alike characters');
+  const other = await (await fetch(`${base}/api/workspaces`, json('POST', { name: 'Other', envName: 'Dev', envUrl: 'https://dev.example.com' }, admin))).json();
+  const list = await (await fetch(`${base}/api/workspaces`, { headers: { cookie: admin } })).json();
+  assert.equal(list.admin, 'Alex');
+  assert.equal(list.workspaces.length, 2);
 
-  const ws = await (await fetch(`${base}/api/workspaces`, json('POST', { name: 'App', envName: 'Staging', envUrl: 'https://staging.example.com' }, cookie))).json();
-  const issuesUrl = `${base}/api/w/${ws.token}/issues`;
+  // Reporter sign-in with the project key
+  assert.equal((await fetch(`${base}/api/reporter`)).status, 401, 'reporter page needs a project key');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: 'AAAA-BBBB-CCCC' }))).status, 401, 'wrong project key');
+  const typed = ws.reporterKey.toLowerCase().replace(/-/g, ' ');
+  const rLogin = await fetch(`${base}/api/reporter/login`, json('POST', { key: typed }));
+  assert.equal(rLogin.status, 200, 'key is accepted in any case, with spaces instead of dashes');
+  const reporter = cookieOf(rLogin);
+  const view = await (await fetch(`${base}/api/reporter`, { headers: { cookie: reporter } })).json();
+  assert.equal(view.name, 'App');
+  assert.equal(view.reporterKey, undefined, 'reporters never see the key in API responses');
 
-  assert.equal((await fetch(`${base}/api/w/wrong/issues`, json('POST', { title: 'x' }))).status, 404, 'unknown link');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: '  ' }))).status, 400, 'title is required');
+  // Reporting
+  const issuesUrl = `${base}/api/reporter/issues`;
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x' }))).status, 401, 'reporting needs the project key');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: '  ' }, reporter))).status, 400, 'title is required');
   const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>').toString('base64');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: svg }))).status, 400, 'SVG is rejected');
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: svg }, reporter))).status, 400, 'SVG is rejected');
   const huge = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)]).toString('base64');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: huge }))).status, 413, 'oversized screenshot');
-
-  const plain = await (await fetch(issuesUrl, json('POST', { title: 'No screenshot' }))).json();
+  assert.equal((await fetch(issuesUrl, json('POST', { title: 'x', shot: huge }, reporter))).status, 413, 'oversized screenshot');
+  const plain = await (await fetch(issuesUrl, json('POST', { title: 'No screenshot' }, reporter))).json();
   assert.equal(plain.shot, null, 'screenshot is optional');
-  const issue = await (await fetch(issuesUrl, json('POST', { title: 'Broken', reporter: 'Sam', shot: PNG.toString('base64') }))).json();
+  const issue = await (await fetch(issuesUrl, json('POST', { title: 'Broken', reporter: 'Sam', shot: PNG.toString('base64') }, reporter))).json();
   assert.deepEqual([plain.number, issue.number], [1, 2], 'issues are numbered per workspace');
 
-  const shot = await fetch(`${base}/shots/${ws.token}/${issue.shot}`);
+  // Screenshots: admins and this project's reporters only
+  const shotUrl = `${base}/shots/${ws.token}/${issue.shot}`;
+  const shot = await fetch(shotUrl, { headers: { cookie: reporter } });
   assert.equal(shot.headers.get('content-type'), 'image/png');
   assert.deepEqual(Buffer.from(await shot.arrayBuffer()), PNG);
-  assert.equal((await fetch(`${base}/shots/${ws.token}/..%2Fdb.json`)).status, 404, 'no path traversal');
+  assert.equal((await fetch(shotUrl, { headers: { cookie: admin } })).status, 200, 'admins see screenshots');
+  assert.equal((await fetch(shotUrl)).status, 404, 'no key, no screenshot');
+  const otherReporter = cookieOf(await fetch(`${base}/api/reporter/login`, json('POST', { key: other.reporterKey })));
+  assert.equal((await fetch(shotUrl, { headers: { cookie: otherReporter } })).status, 404, 'other projects cannot see it');
+  assert.equal((await fetch(`${base}/shots/${ws.token}/..%2Fdb.json`, { headers: { cookie: admin } })).status, 404, 'no path traversal');
 
+  // Fixing
   const patchUrl = `${base}/api/workspaces/${ws.token}/issues/${issue.id}`;
-  assert.equal((await fetch(patchUrl, json('PATCH', { done: true }))).status, 401, 'testers cannot check off');
-  assert.equal((await fetch(patchUrl, json('PATCH', { done: true }, cookie))).status, 200);
+  assert.equal((await fetch(patchUrl, json('PATCH', { done: true }, reporter))).status, 401, 'reporters cannot check off');
+  assert.equal((await fetch(patchUrl, json('PATCH', { done: true }, admin))).status, 200);
+  const after = await (await fetch(`${base}/api/reporter`, { headers: { cookie: reporter } })).json();
+  const fixed = after.issues.find((i) => i.id === issue.id);
+  assert.equal(fixed.done, true);
+  assert.equal(fixed.doneBy, 'Alex', 'records who fixed it');
 
-  const view = await (await fetch(`${base}/api/w/${ws.token}`)).json();
-  assert.equal(view.issues.length, 2);
-  assert.equal(view.issues[1].done, true);
-  assert.equal(view.issues[1].doneBy, 'Alex', 'records who fixed it');
-  assert.equal(view.envUrl, 'https://staging.example.com');
-  assert.equal(view.adminKey, undefined);
+  // Regenerating the project key signs out everyone using the old one
+  const { reporterKey: newKey } = await (await fetch(`${base}/api/workspaces/${ws.token}/key`, json('POST', {}, admin))).json();
+  assert.notEqual(newKey, ws.reporterKey);
+  assert.equal((await fetch(`${base}/api/reporter`, { headers: { cookie: reporter } })).status, 401, 'old key session ends');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: ws.reporterKey }))).status, 401, 'old key no longer works');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).status, 200, 'new key works');
+  assert.equal((await fetch(`${base}/api/workspaces/${ws.token}/key`, json('POST', {}, reporter))).status, 401, 'only admins regenerate keys');
 
-  const out = await fetch(`${base}/api/logout`, { method: 'POST', headers: { cookie } });
-  assert.match(out.headers.get('set-cookie'), /admin=; .*Max-Age=0/, 'sign-out clears the cookie');
+  // Sign-out clears both cookies
+  assert.match((await fetch(`${base}/api/logout`, json('POST', {}, admin))).headers.get('set-cookie'), /^admin=; .*Max-Age=0/);
+  assert.match((await fetch(`${base}/api/reporter/logout`, json('POST', {}))).headers.get('set-cookie'), /^reporter=; .*Max-Age=0/);
 
-  // 10 wrong keys (one already used above) lock this connection out, even for a right key.
-  for (let i = 0; i < 9; i++) await fetch(`${base}/api/login`, json('POST', { key: 'wrong' }));
+  // Admin and reporter guesses share one limit: 4 wrong so far (nope, short, AAAA…, old key), 6 more locks it.
+  for (let i = 0; i < 6; i++) await fetch(`${base}/api/reporter/login`, json('POST', { key: 'ZZZZ-ZZZZ-ZZZZ' }));
   assert.equal((await fetch(`${base}/api/login`, json('POST', { key: 'sam-key-0123456789abcdef' }))).status, 429, 'brute force is rate limited');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).status, 429, 'also for project keys');
 });
