@@ -114,7 +114,9 @@ test('admin and reporter flow', async (t) => {
   assert.equal(clientView.client, 'Acme');
   assert.deepEqual(clientView.projects.map((x) => x.name), ['App', 'Renamed'], 'a client key sees all its projects');
   assert.equal((await fetch(shotUrl, { headers: { cookie: clientCookie } })).status, 200, 'clients see screenshots of their projects');
-  assert.equal((await fetch(issuesUrl, json('POST', { title: 'From client', project: other.token }, clientCookie))).status, 201, 'clients report into any of their projects');
+  const fromClient = await fetch(issuesUrl, json('POST', { title: 'From client', reporter: 'Someone else', project: other.token }, clientCookie));
+  assert.equal(fromClient.status, 201, 'clients report into any of their projects');
+  assert.equal((await fromClient.json()).reporter, 'Acme', 'client reports are signed with the client name');
 
   // Unlinking a project removes access; a new client key signs out the old one
   await fetch(`${base}/api/clients/${client.id}`, json('PATCH', { projects: [other.token] }, admin));

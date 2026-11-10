@@ -367,7 +367,7 @@ const routes = [
   }],
 
   ['POST', /^\/api\/reporter\/issues$/, async (req, res) => {
-    const { tokens } = await reporterAccess(req);
+    const { tokens, client } = await reporterAccess(req);
     const body = await readJson(req);
     const workspaceToken = body.project;
     if (!tokens.includes(workspaceToken)) fail(404, 'Project not found');
@@ -377,7 +377,7 @@ const routes = [
       id: crypto.randomUUID(),
       title,
       details: text(body.details, 5000),
-      reporter: text(body.reporter, 100),
+      reporter: client || text(body.reporter, 100), // a client key already says who is reporting
       shot: await saveScreenshot(workspaceToken, body.shot),
       done: false,
       createdAt: Date.now(),

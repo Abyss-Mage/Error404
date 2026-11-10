@@ -642,7 +642,7 @@ async function reporterView() {
     error.textContent = notice.textContent = '';
     submit.disabled = true;
     try {
-      localStorage.setItem('reporter', reporter.value);
+      if (!data.client) localStorage.setItem('reporter', reporter.value);
       const issue = await api('/api/reporter/issues', 'POST', { project: selected, title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
       fresh.add(issue.id);
       title.value = details.value = '';
@@ -654,7 +654,7 @@ async function reporterView() {
       error.textContent = err.message;
     }
     submit.disabled = false;
-  } }, formTitle, titleLabel, detailsLabel, reporterLabel,
+  } }, formTitle, titleLabel, detailsLabel, data.client ? null : reporterLabel, // client keys are signed with the client's name
     el('div', { className: 'field' }, el('span', { className: 'label' }, 'Screenshot'), el('span', { className: 'hint' }, 'Optional'), drop, preview),
     error, submit, notice);
   notice.style.marginTop = '14px';
