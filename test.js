@@ -165,6 +165,41 @@ test('admin and reporter flow', async (t) => {
   const view2 = await (await fetch(`${base}/api/reporter`, { headers: { cookie: (await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).headers.get('set-cookie').split(';')[0] } })).json();
   assert.ok(!JSON.stringify(view2).includes('e404_'), 'reporters never see agent tokens');
 
+  // Feature requests are a report type
+  const rep2 = cookieOf(await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey })));
+  const feature = await (await fetch(issuesUrl, json('POST', { title: 'Dark mode please', type: 'feature', project: ws.token }, rep2))).json();
+  assert.equal(feature.type, 'feature');
+  assert.equal((await (await fetch(issuesUrl, json('POST', { title: 'Odd type', type: 'nonsense', project: ws.token }, rep2))).json()).type, 'bug', 'unknown types become bugs');
+  const agentCall = async (args) => JSON.parse((await rpc(newAgentToken, 'tools/call', { name: 'list_problems', arguments: args })).body.result.content[0].text).problems;
+  assert.deepEqual((await agentCall({ type: 'feature' })).map((p) => [p.title, p.type]), [['Dark mode please', 'feature request']], 'agents can filter feature requests');
+
+  // Deleting a single report removes its screenshot too
+  const withShot = await (await fetch(issuesUrl, json('POST', { title: 'To delete', shot: PNG.toString('base64'), project: ws.token }, rep2))).json();
+  const delIssueUrl = `${base}/api/workspaces/${ws.token}/issues/${withShot.id}`;
+  assert.equal((await fetch(delIssueUrl, json('DELETE', {}, rep2))).status, 401, 'reporters cannot delete');
+  assert.equal((await fetch(delIssueUrl, json('DELETE', {}, admin))).status, 200);
+  assert.equal((await fetch(`${base}/shots/${ws.token}/${withShot.shot}`, { headers: { cookie: admin } })).status, 404, 'its screenshot is gone');
+  assert.ok(!(await agentCall({ status: 'all' })).some((p) => p.title === 'To delete'), 'the report is gone');
+
+  // Deleting a client ends its sessions and key
+  const acmeCookie = cookieOf(await fetch(`${base}/api/reporter/login`, json('POST', { key: newClientKey })));
+  assert.equal((await fetch(`${base}/api/clients/${client.id}`, json('DELETE', {}, rep2))).status, 401, 'only admins delete clients');
+  assert.equal((await fetch(`${base}/api/clients/${client.id}`, json('DELETE', {}, admin))).status, 200);
+  assert.equal((await fetch(`${base}/api/reporter`, { headers: { cookie: acmeCookie } })).status, 401, 'deleted client is signed out');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: newClientKey }))).status, 401, 'deleted client key no longer works');
+
+  // Deleting a project removes its data, keys, agent token and client links
+  const both = await (await fetch(`${base}/api/clients`, json('POST', { name: 'Both', projects: [ws.token, other.token] }, admin))).json();
+  assert.equal((await fetch(`${base}/api/workspaces/${ws.token}`, json('DELETE', {}, rep2))).status, 401, 'only admins delete projects');
+  assert.equal((await fetch(`${base}/api/workspaces/${ws.token}`, json('DELETE', {}, admin))).status, 200);
+  const afterDelete = await (await fetch(`${base}/api/workspaces`, { headers: { cookie: admin } })).json();
+  assert.deepEqual(afterDelete.workspaces.map((w) => w.name), ['Renamed'], 'project is gone');
+  assert.deepEqual(afterDelete.clients.find((c) => c.id === both.id).projects, [other.token], 'clients are unlinked from it');
+  assert.equal((await fetch(`${base}/api/reporter`, { headers: { cookie: rep2 } })).status, 401, 'project-key sessions end');
+  assert.equal((await fetch(`${base}/api/reporter/login`, json('POST', { key: newKey }))).status, 401, 'project key no longer works');
+  assert.equal((await rpc(newAgentToken, 'tools/list')).status, 401, 'agent token no longer works');
+  assert.equal((await fetch(shotUrl, { headers: { cookie: admin } })).status, 404, 'screenshots are gone');
+
   // Sign-out clears both cookies
   assert.match((await fetch(`${base}/api/logout`, json('POST', {}, admin))).headers.get('set-cookie'), /^admin=; .*Max-Age=0/);
   assert.match((await fetch(`${base}/api/reporter/logout`, json('POST', {}))).headers.get('set-cookie'), /^reporter=; .*Max-Age=0/);

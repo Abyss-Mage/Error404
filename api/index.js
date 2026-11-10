@@ -29,6 +29,7 @@ function upstashStore() {
     hget: (key, field) => redis.hget(key, field),
     hgetall: async (key) => pairsToObject(await redis.hgetall(key)),
     hdel: (key, field) => redis.hdel(key, field),
+    del: (...keys) => redis.del(...keys),
     hincrby: async (key, field, by) => Number(await redis.hincrby(key, field, by)),
     expire: (key, seconds) => redis.expire(key, seconds),
   };
@@ -42,6 +43,7 @@ function memoryStore() {
     hget: async (key, field) => data[key]?.[field] ?? null,
     hgetall: async (key) => (data[key] && Object.keys(data[key]).length ? { ...data[key] } : null),
     hdel: async (key, field) => { delete data[key]?.[field]; },
+    del: async (...keys) => { keys.forEach((k) => delete data[k]); },
     hincrby: async (key, field, by) => ((data[key] ||= {})[field] = Number(data[key][field] || 0) + by),
     expire: async () => {},
   };
@@ -246,8 +248,11 @@ async function agentWorkspace(req) {
 const MCP_TOOLS = [
   {
     name: 'list_problems',
-    description: 'List problems testers reported in this project, newest first: number, title, details, reporter, status, and whether there is a screenshot.',
-    inputSchema: { type: 'object', properties: { status: { type: 'string', enum: ['open', 'fixed', 'all'], description: 'Which problems to list. Default: open.' } } },
+    description: 'List bug reports and feature requests testers made in this project, newest first: number, type, title, details, reporter, status, and whether there is a screenshot.',
+    inputSchema: { type: 'object', properties: {
+      status: { type: 'string', enum: ['open', 'fixed', 'all'], description: 'Which to list. Default: open.' },
+      type: { type: 'string', enum: ['bug', 'feature', 'all'], description: 'Bugs, feature requests, or both. Default: all.' },
+    } },
   },
   {
     name: 'get_problem',
@@ -262,7 +267,7 @@ const MCP_TOOLS = [
 ];
 
 const problemSummary = (i) => ({
-  number: i.number, title: i.title, details: i.details || undefined, reporter: i.reporter || 'Anonymous',
+  number: i.number, type: i.type === 'feature' ? 'feature request' : 'bug', title: i.title, details: i.details || undefined, reporter: i.reporter || 'Anonymous',
   status: i.done ? 'fixed' : 'open', fixedBy: i.doneBy || undefined, reportedAt: new Date(i.createdAt).toISOString(), screenshot: Boolean(i.shot),
 });
 
@@ -271,7 +276,11 @@ async function callTool(w, name, args) {
   const find = () => (Number.isInteger(args.number) && issues.find((i) => i.number === args.number)) || fail(404, `There is no problem #${args.number} in ${w.name}.`);
   if (name === 'list_problems') {
     const status = args.status || 'open';
-    const problems = issues.filter((i) => status === 'all' || (status === 'fixed') === i.done).sort((a, b) => b.createdAt - a.createdAt).map(problemSummary);
+    const type = args.type || 'all';
+    const problems = issues
+      .filter((i) => status === 'all' || (status === 'fixed') === i.done)
+      .filter((i) => type === 'all' || (i.type || 'bug') === type)
+      .sort((a, b) => b.createdAt - a.createdAt).map(problemSummary);
     return [{ type: 'text', text: JSON.stringify({ project: w.name, environment: `${w.envName}: ${w.envUrl}`, problems }, null, 2) }];
   }
   if (name === 'get_problem') {
@@ -388,6 +397,38 @@ const routes = [
     send(res, 200, workspace);
   }],
 
+  // Deleting a project removes everything hanging off it: reports, screenshots, keys, agent token, client links.
+  ['DELETE', /^\/api\/workspaces\/([\w-]+)$/, async (req, res, workspaceToken) => {
+    currentAdmin(req);
+    const workspace = await workspaceFor(workspaceToken);
+    if (workspace.reporterKey) await store.hdel('reporter-keys', reporterHash(workspace.reporterKey));
+    if (workspace.agentToken) await store.hdel('agent-tokens', agentHash(workspace.agentToken));
+    await store.del(`issues:${workspaceToken}`, `shots:${workspaceToken}`);
+    await store.hdel('issue-numbers', workspaceToken);
+    await store.hdel('workspaces', workspaceToken);
+    await Promise.all(parseAll(await store.hgetall('clients')).filter((c) => c.projects.includes(workspaceToken)).map((c) => {
+      c.projects = c.projects.filter((t) => t !== workspaceToken);
+      return saveClient(c);
+    }));
+    send(res, 200, { ok: true });
+  }],
+
+  ['DELETE', /^\/api\/workspaces\/([\w-]+)\/issues\/([\w-]+)$/, async (req, res, workspaceToken, id) => {
+    currentAdmin(req);
+    const issue = JSON.parse((await store.hget(`issues:${workspaceToken}`, id)) || fail(404, 'Report not found'));
+    if (issue.shot) await store.hdel(`shots:${workspaceToken}`, issue.shot);
+    await store.hdel(`issues:${workspaceToken}`, id);
+    send(res, 200, { ok: true });
+  }],
+
+  ['DELETE', /^\/api\/clients\/([\w-]+)$/, async (req, res, id) => {
+    currentAdmin(req);
+    const client = await clientFor(id);
+    await store.hdel('reporter-keys', reporterHash(client.reporterKey));
+    await store.hdel('clients', id);
+    send(res, 200, { ok: true });
+  }],
+
   ['POST', /^\/api\/workspaces\/([\w-]+)\/agent-token$/, async (req, res, workspaceToken) => {
     currentAdmin(req);
     const workspace = await workspaceFor(workspaceToken);
@@ -486,6 +527,7 @@ const routes = [
       title,
       details: text(body.details, 5000),
       reporter: client || text(body.reporter, 100), // a client key already says who is reporting
+      type: body.type === 'feature' ? 'feature' : 'bug',
       shot: await saveScreenshot(workspaceToken, body.shot),
       done: false,
       createdAt: Date.now(),

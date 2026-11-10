@@ -187,6 +187,31 @@
   .peel:active { transform: scale(.9); }
   .peel:checked { background-color: var(--fixed); border-color: var(--fixed); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230b0b0c' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E"); }
 
+  /* Filter chips (type, status) and the reporter's Problem / Feature request switch */
+  .filters { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border-radius: 99px; border: 1px solid #3a3a40; background: transparent; color: var(--ink-2); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .chip-btn .n { font: 700 12px/1 var(--mono); }
+  .chips-label { align-self: center; margin-right: 2px; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+  .chip-btn .icon { width: 16px; height: 16px; }
+  .chip-btn[aria-pressed="true"] { background: rgb(255 42 58 / .14); border-color: var(--red); color: var(--ink); }
+  @media (hover: hover) { .chip-btn:not([aria-pressed="true"]):hover { border-color: var(--field); color: var(--ink); } }
+  @media (pointer: coarse) { .chip-btn { min-height: 40px; } }
+  .kind-switch { margin-bottom: 18px; }
+
+  /* Feature requests: outlined number and a label, so they read apart from bugs without a new colour */
+  .feature .tag { color: var(--red-text); }
+  .feature .tag::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--red); }
+  .kind { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 12px; font-weight: 700; color: var(--red-text); }
+  .kind .icon { width: 14px; height: 14px; }
+
+  .row-actions { display: flex; align-items: center; gap: 4px; }
+  .icon-btn { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; }
+  @media (hover: hover) { .icon-btn:hover { color: var(--red-text); background: #1d1d20; } }
+  @media (pointer: coarse) { .icon-btn { width: 42px; height: 42px; } }
+  .btn.danger { background: transparent; color: var(--red-text); border-color: rgb(255 42 58 / .45); margin-left: auto; }
+  @media (hover: hover) { .btn.danger:not(:disabled):hover { background: rgb(255 42 58 / .1); border-color: var(--red); } }
+
   /* Signature motion: a report glitches in when it lands and glitches out when fixed. */
   @keyframes glitch-in {
     0% { opacity: 0; transform: translateX(-6px); clip-path: inset(45% 0 45% 0); }
@@ -331,6 +356,9 @@ const ICONS = {
   plus: 'M12 5v14M5 12h14',
   refresh: 'M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6',
   send: 'M4 12l16-8-6 16-3-7z',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
+  bug: 'M9 7a3 3 0 0 1 6 0M8 9h8v6a4 4 0 0 1-8 0zM4 12h4M16 12h4M5 18l3-1.5M19 18l-3-1.5M5 7l3 2M19 7l-3 2',
   edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
 };
 
@@ -378,7 +406,6 @@ function timeAgo(t) {
 
 const ordered = (issues) => [...issues].sort((a, b) => a.done - b.done || b.createdAt - a.createdAt);
 const openCount = (issues) => issues.filter((i) => !i.done).length;
-const countText = (issues) => `${openCount(issues)} open · ${issues.length - openCount(issues)} fixed`;
 
 async function copyText(text, button, label) {
   try { await navigator.clipboard.writeText(text); } catch { window.prompt('Copy this:', text); return; }
@@ -421,8 +448,10 @@ function envLink(w, className) {
   return el('a', { className, href: w.envUrl, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), el('span', { className: 'btn-text' }, `Open ${w.envName} site`));
 }
 
-function snagRow(issue, token, onToggle) {
-  const li = el('li', { className: `snag${issue.done ? ' done' : ''}${fresh.has(issue.id) ? ' fresh' : ''}` });
+const isFeature = (i) => i.type === 'feature';
+
+function snagRow(issue, token, { onToggle, onDelete }) {
+  const li = el('li', { className: `snag${issue.done ? ' done' : ''}${isFeature(issue) ? ' feature' : ''}${fresh.has(issue.id) ? ' fresh' : ''}` });
   fresh.delete(issue.id);
   const shotUrl = issue.shot && `/shots/${token}/${issue.shot}`;
   const when = el('time', { dateTime: new Date(issue.createdAt).toISOString(), title: new Date(issue.createdAt).toLocaleString() }, timeAgo(issue.createdAt));
@@ -435,23 +464,40 @@ function snagRow(issue, token, onToggle) {
   } else {
     end = el('span', { className: 'state' }, icon(issue.done ? 'check' : 'circle'), issue.done ? 'Fixed' : 'Open');
   }
+  const remove = onDelete && el('button', { type: 'button', className: 'icon-btn', title: 'Delete', ariaLabel: `Delete #${issue.number} “${issue.title}”`, onclick: () => onDelete(issue) }, icon('trash'));
   li.append(
-    el('span', { className: 'tag' }, el('span', { className: 'sr-only' }, 'Problem '), `#${issue.number ?? '–'}`),
+    el('span', { className: 'tag' }, el('span', { className: 'sr-only' }, isFeature(issue) ? 'Feature request ' : 'Problem '), `#${issue.number ?? '–'}`),
     el('div', {},
+      isFeature(issue) ? el('span', { className: 'kind', ariaHidden: 'true' }, icon('bulb'), 'Feature request') : null,
       el('h3', {}, issue.title),
       issue.details ? el('p', { className: 'details' }, issue.details) : null,
       shotUrl ? el('a', { className: 'shot', href: shotUrl, target: '_blank', rel: 'noopener' }, el('img', { src: shotUrl, alt: `Screenshot for #${issue.number}`, loading: 'lazy' })) : null,
       el('p', { className: 'meta' }, `${issue.reporter || 'Anonymous'} · `, when, fixedBy)),
-    end);
+    el('div', { className: 'row-actions' }, end, remove));
   return li;
 }
 
-function problemList(issues, token, onToggle, emptyText) {
-  const head = el('div', { className: 'list-head' }, el('h2', {}, 'Problems'), el('span', { className: 'count' }, issues.length ? countText(issues) : ''));
-  const body = issues.length
-    ? el('ul', { className: 'snags' }, ...ordered(issues).map((i) => snagRow(i, token, onToggle)))
-    : el('div', { className: 'sheet empty' }, el('strong', {}, 'Nothing reported yet'), emptyText);
-  return [head, body];
+// Report list with type and status filter chips. `filter` ({ type, status }) is owned by the page.
+function problemList(issues, token, { filter, onFilter, emptyText, onToggle, onDelete }) {
+  const byType = { all: issues, bug: issues.filter((i) => !isFeature(i)), feature: issues.filter(isFeature) };
+  const typed = byType[filter.type];
+  const byStatus = { all: typed, open: typed.filter((i) => !i.done), fixed: typed.filter((i) => i.done) };
+  const shown = byStatus[filter.status];
+  const chips = (key, label, options) => el('div', { className: 'chips', role: 'group', ariaLabel: label }, el('span', { className: 'chips-label', ariaHidden: 'true' }, label), ...options.map(([value, text, count]) => {
+    const b = el('button', { type: 'button', className: 'chip-btn', onclick: () => { filter[key] = value; onFilter(); } }, text, el('span', { className: 'n' }, String(count)));
+    b.setAttribute('aria-pressed', filter[key] === value);
+    return b;
+  }));
+  const empty = (title, text) => el('div', { className: 'sheet empty' }, el('strong', {}, title), text);
+  return [
+    el('div', { className: 'list-head' }, el('h2', {}, 'Reports')),
+    issues.length && el('div', { className: 'filters' },
+      chips('type', 'Type', [['all', 'All', issues.length], ['bug', 'Bugs', byType.bug.length], ['feature', 'Features', byType.feature.length]]),
+      chips('status', 'Status', [['all', 'All', typed.length], ['open', 'Open', byStatus.open.length], ['fixed', 'Fixed', byStatus.fixed.length]])),
+    !issues.length ? empty('Nothing reported yet', emptyText)
+      : shown.length ? el('ul', { className: 'snags' }, ...ordered(shown).map((i) => snagRow(i, token, { onToggle, onDelete })))
+      : empty('Nothing here', 'No reports match these filters.'),
+  ].filter(Boolean);
 }
 
 async function asJpeg(file) {
@@ -582,6 +628,22 @@ async function reporterView() {
   const notice = el('p', { className: 'notice', role: 'status' });
   const submit = el('button', { type: 'submit', className: 'btn wide' }, icon('send'), 'Publish problem');
   const formTitle = el('h2', {}, 'Report a problem');
+  const filter = { type: 'all', status: 'all' };
+  // Problem or feature request: the switch rewrites the form's wording; the server stores the type.
+  let kind = 'bug';
+  const kindSwitch = el('div', { className: 'chips kind-switch', role: 'group', ariaLabel: 'What are you sending?' },
+    ...[['bug', 'bug', 'Problem'], ['feature', 'bulb', 'Feature request']].map(([value, iconName, text]) =>
+      el('button', { type: 'button', className: 'chip-btn', onclick: () => { kind = value; applyKind(); } }, icon(iconName), text)));
+  function applyKind() {
+    const feature = kind === 'feature';
+    kindSwitch.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-pressed', (i === 1) === feature));
+    titleLabel.querySelector('.label').textContent = feature ? 'What would you like?' : 'What went wrong?';
+    title.placeholder = feature ? 'Let customers pay with Apple Pay' : 'The Pay button does nothing';
+    details.placeholder = feature ? 'Why would it help? Where should it go?' : 'What page were you on? What did you tap or click? What did you expect?';
+    submit.lastChild.textContent = feature ? 'Send request' : 'Publish problem';
+    const p = current();
+    formTitle.textContent = `${feature ? 'Request a feature' : 'Report a problem'}${p && data.projects.length > 1 ? ` in ${p.name}` : ''}`;
+  }
   const header = el('div');
   const switcher = el('nav', { className: 'switcher', ariaLabel: 'Your projects' });
   const list = el('section', { ariaLabel: 'Reported problems' });
@@ -633,14 +695,14 @@ async function reporterView() {
       actions: [envLink(p, 'btn quiet small'), signOut],
     }));
     const many = data.projects.length > 1;
-    formTitle.textContent = many ? `Report a problem in ${p.name}` : 'Report a problem';
+    applyKind();
     switcher.hidden = !many;
     switcher.replaceChildren(el('ul', { className: 'ws-list' }, ...data.projects.map((x) => navButton({
       name: x.name, sub: x.envName, count: openCount(x.issues), current: x.token === selected,
       onclick: () => { selected = x.token; notice.textContent = ''; render(); },
     }))));
     revealSelected(switcher.firstChild);
-    list.replaceChildren(...problemList(p.issues, p.token, null, 'Problems you report will appear here with their number.'));
+    list.replaceChildren(...problemList(p.issues, p.token, { filter, onFilter: render, emptyText: 'Problems and requests you send will appear here with their number.' }));
   }
 
   async function refresh() {
@@ -656,18 +718,18 @@ async function reporterView() {
     submit.disabled = true;
     try {
       if (!data.client) localStorage.setItem('reporter', reporter.value);
-      const issue = await api('/api/reporter/issues', 'POST', { project: selected, title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
+      const issue = await api('/api/reporter/issues', 'POST', { project: selected, type: kind, title: title.value, details: details.value, reporter: reporter.value, shot: shot && await readAsBase64(shot) });
       fresh.add(issue.id);
       title.value = details.value = '';
       await setShot(null);
-      notice.replaceChildren(icon('check'), `Thanks! Your problem is #${issue.number} on the list.`);
+      notice.replaceChildren(icon('check'), `Thanks! Your ${kind === 'feature' ? 'request' : 'problem'} is #${issue.number} on the list.`);
       await refresh();
     } catch (err) {
       if (err.status === 401) return reporterLogin();
       error.textContent = err.message;
     }
     submit.disabled = false;
-  } }, formTitle, titleLabel, detailsLabel, data.client ? null : reporterLabel, // client keys are signed with the client's name
+  } }, formTitle, kindSwitch, titleLabel, detailsLabel, data.client ? null : reporterLabel, // client keys are signed with the client's name
     el('div', { className: 'field' }, el('span', { className: 'label' }, 'Screenshot'), el('span', { className: 'hint' }, 'Optional'), drop, preview),
     error, submit, notice);
   notice.style.marginTop = '14px';
@@ -692,6 +754,20 @@ async function adminView() {
   let { workspaces, clients } = data;
   let sel = { kind: 'project', id: workspaces[0] && workspaces[0].token };
   let editing = false;
+  const filter = { type: 'all', status: 'all' };
+
+  // Every delete asks first and says what goes with it; none of them can be undone.
+  async function destroy(question, url, afterDelete) {
+    if (!confirm(question)) return;
+    status.textContent = '';
+    try {
+      await api(url, 'DELETE');
+      if (afterDelete) afterDelete();
+      await refresh();
+    } catch (err) {
+      status.textContent = err.message;
+    }
+  }
 
   const projectNav = el('ul', { className: 'ws-list' });
   const clientNav = el('ul', { className: 'ws-list' });
@@ -749,7 +825,6 @@ async function adminView() {
     try {
       Object.assign(issue, await api(`/api/workspaces/${sel.id}/issues/${issue.id}`, 'PATCH', { done }));
       renderNav();
-      main.querySelector('.count').textContent = countText(project().issues);
     } catch (err) {
       box.checked = !done;
       li.classList.toggle('done', !done);
@@ -856,7 +931,12 @@ async function adminView() {
       }
     }, onkeydown: (e) => { if (e.key === 'Escape') cancel(); } },
       el('h2', {}, 'Edit project'), el('div', { className: 'fields' }, nl, el2, ul), error,
-      el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save changes'), el('button', { type: 'button', className: 'btn quiet', onclick: cancel }, 'Cancel')));
+      el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save changes'), el('button', { type: 'button', className: 'btn quiet', onclick: cancel }, 'Cancel'),
+        el('button', { type: 'button', className: 'btn danger', onclick: () => destroy(
+          `Delete “${w.name}”?\n\nThis permanently removes its ${w.issues.length} report${w.issues.length === 1 ? '' : 's'} and their screenshots, its project key and agent token, and removes it from any clients. This can't be undone.`,
+          `/api/workspaces/${w.token}`,
+          () => { editing = false; sel = { kind: 'project', id: workspaces.find((x) => x.token !== w.token)?.token }; },
+        ) }, icon('trash'), 'Delete project')));
     requestAnimationFrame(() => n.focus());
     return form;
   }
@@ -874,7 +954,11 @@ async function adminView() {
       }),
       agentPanel(w),
       status,
-      ...problemList(w.issues, w.token, toggle, 'Send the project key to your testers. New reports show up here, newest first.'));
+      ...problemList(w.issues, w.token, {
+        filter, onFilter: render, onToggle: toggle,
+        onDelete: (i) => destroy(`Delete #${i.number} “${i.title}”?\n\nIts screenshot is deleted too. This can't be undone.`, `/api/workspaces/${w.token}/issues/${i.id}`),
+        emptyText: 'Send the project key to your testers. New reports show up here, newest first.',
+      }));
   }
 
   function renderClient(c) {
@@ -900,7 +984,12 @@ async function adminView() {
       el('h2', {}, 'Access'), nl,
       el('fieldset', { className: 'checks-set' }, el('legend', { className: 'label' }, 'Projects this client can see'),
         workspaces.length ? checks : el('p', { className: 'hint' }, 'Create a project first.')),
-      error, el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save'), saved));
+      error, el('div', { className: 'form-actions' }, el('button', { type: 'submit', className: 'btn' }, 'Save'), saved,
+        el('button', { type: 'button', className: 'btn danger', onclick: () => destroy(
+          `Delete client “${c.name}”?\n\nTheir key stops working straight away. Projects and reports are kept. This can't be undone.`,
+          `/api/clients/${c.id}`,
+          () => { sel = { kind: 'project', id: workspaces[0]?.token }; },
+        ) }, icon('trash'), 'Delete client')));
     main.replaceChildren(
       el('div', { className: 'ws-head' }, el('h1', {}, c.name), el('p', { className: 'hint' }, 'One key for every project you share with this client.')),
       keyPanel(c, {
