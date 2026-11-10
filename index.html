@@ -212,8 +212,10 @@
   .rail-group + .rail-group { margin-top: 18px; }
   .ws-list { list-style: none; margin: 0 calc(var(--gutter) * -1); padding: 2px var(--gutter) 6px; display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter); scrollbar-width: none; }
   .ws-list::-webkit-scrollbar { display: none; }
-  .ws-list li { flex: 0 0 auto; scroll-snap-align: start; }
-  .ws { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-width: 168px; max-width: 260px; min-height: 52px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sheet); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
+  .ws-list li { flex: 0 0 auto; display: flex; scroll-snap-align: start; }
+  /* In strips every card is the same height with a one-line name; the full name is in the tooltip. */
+  .ws-list .ws-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ws { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; width: clamp(200px, 26vw, 300px); min-height: 52px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--sheet); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out); }
   .ws-name { display: block; font-weight: 600; overflow-wrap: anywhere; line-height: 1.3; }
   .ws-env { display: block; font-size: 12.5px; color: var(--ink-2); }
   .ws[aria-current="true"] { border-color: var(--red); }
@@ -221,7 +223,8 @@
   .empty-note { font-size: 13px; color: var(--ink-2); padding: 4px; }
   @media (min-width: 960px) {
     .admin-page .ws-list { display: grid; gap: 4px; margin: 0; padding: 0; overflow: visible; }
-    .admin-page .ws { min-width: 0; max-width: none; width: 100%; background: transparent; border-color: transparent; }
+    .admin-page .ws-list .ws-name { white-space: normal; }
+    .admin-page .ws { width: 100%; background: transparent; border-color: transparent; }
     .admin-page .ws[aria-current="true"] { background: var(--sheet); border-color: #3a3a40; }
     .admin-page .ws:not([aria-current="true"]):hover { background: #121214; border-color: transparent; }
   }
@@ -526,7 +529,7 @@ function adminLogin() {
 /* ---------- Project / client buttons (rail and reporter switcher) ---------- */
 
 function navButton({ name, sub, count, current, onclick }) {
-  const button = el('button', { type: 'button', className: 'ws', onclick },
+  const button = el('button', { type: 'button', className: 'ws', title: name, onclick },
     el('span', {}, el('span', { className: 'ws-name' }, name), sub ? el('span', { className: 'ws-env' }, sub) : null),
     count == null ? null : el('span', { className: `tag mini${count ? '' : ' zero'}` }, el('span', { className: 'sr-only' }, 'Open problems: '), String(count)));
   button.setAttribute('aria-current', current);
